@@ -3,11 +3,17 @@
 # Licensed under GPLv3 License
 
 import argparse
+import gc
 import logging
 import os
 import sys
+import time
 
 from mtkclient.Library.mtk_main import Main, metamodes
+
+# Pause between fwflash connection attempts, so a phone that was just
+# unplugged has time to drop off the bus before we start waiting again.
+FWFLASH_RETRY_DELAY = 2
 
 INFO = "MTK Flash/Exploit Client V2.1.4 (c) B.Kerler 2018-2026"
 
@@ -23,6 +29,7 @@ CMDS_HELP = {
     "w": "Write partition from filename",
     "wf": "Write flash from filename",
     "wl": "Write partitions from directory path to flash",
+    "fwflash": "Flash an SP Flash Tool V6 package (Firmware Upgrade)",
     "wo": "Write flash starting at offset from filename",
     "e": "Erase partition",
     "es": "Erase partition with sector count",
@@ -128,6 +135,35 @@ def add_common_flash_cmd(subparsers, name, title, parent_parser):
     )
 
 
+def run_fwflash(args, parser):
+    """Run fwflash like SP Flash Tool: keep waiting for the phone until it flashes.
+
+    Anything that fails before the DA accepts the upgrade (no device yet,
+    cable pulled during the handshake, DA not up, storage not detected)
+    sends us back to waiting for the next connection. Once the DA has started
+    the upgrade, or the package itself is bad, we stop instead of retrying.
+    """
+    attempt = 0
+    while True:
+        attempt += 1
+        args.fwflash_state = None
+        try:
+            Main(args).run(parser)
+        except SystemExit:
+            pass
+        state = args.fwflash_state
+        if state == "done":
+            print("Firmware upgrade completed.")
+            return 0
+        if state in ("failed", "fatal"):
+            return 1
+        print(f"\nDevice not ready or connection lost (attempt {attempt}). "
+              "Power the phone off, then hold the volume keys and plug it in "
+              "again. Waiting for the next connection... (Ctrl-C to stop)\n")
+        gc.collect()
+        time.sleep(FWFLASH_RETRY_DELAY)
+
+
 def main():
     base = create_base_parser()
 
@@ -203,6 +239,17 @@ def main():
     cmd_fs = subparsers.add_parser("fs", help="Mount as FUSE filesystem")
     cmd_fs.add_argument("mountpoint")
     cmd_fs.add_argument("--rw", action="store_true")
+
+    cmd_fw = subparsers.add_parser("fwflash", help=CMDS_HELP["fwflash"], parents=[base])
+    cmd_fw.add_argument("flash_xml",
+                        help="Path to the package's download_agent/flash.xml")
+    cmd_fw.add_argument("--storage", choices=["EMMC", "UFS"], default=None,
+                        help="Scatter storage layout (default: auto-detect from device)")
+    cmd_fw.add_argument("--backup", default=None,
+                        help="Folder for DA-side partition backups "
+                             "(default: mtk_fwbackup next to the package)")
+    cmd_fw.add_argument("--yes", action="store_true",
+                        help="Confirm the destructive flash (required to proceed)")
 
     subparsers.add_parser("reset", help="Send reset command", parents=[base])
     subparsers.add_parser("meta", help="Enter meta mode", parents=[base]) \
@@ -341,6 +388,9 @@ def main():
     if args.debugmode:
         if not os.path.exists("logs"):
             os.makedirs("logs")
+
+    if args.cmd == "fwflash":
+        return run_fwflash(args, parser)
 
     mtk = Main(args)
     return mtk.run(parser)

@@ -23,9 +23,16 @@ except ImportError:
     pass
 
 try:
-    sys.stdout = io.TextIOWrapper(sys.stdout.detach(), encoding='utf-8')
-    sys.stderr = io.TextIOWrapper(sys.stderr.detach(), encoding='utf-8')
-except (io.UnsupportedOperation, AttributeError):
+    # Prefer reconfigure (3.7+): it forces utf-8 without detaching the
+    # underlying buffer, so it stays compatible with wrapped streams such
+    # as pytest's capture. Fall back to the detach approach only if needed.
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding='utf-8')
+        sys.stderr.reconfigure(encoding='utf-8')
+    else:
+        sys.stdout = io.TextIOWrapper(sys.stdout.detach(), encoding='utf-8')
+        sys.stderr = io.TextIOWrapper(sys.stderr.detach(), encoding='utf-8')
+except (io.UnsupportedOperation, AttributeError, ValueError):
     pass
 
 

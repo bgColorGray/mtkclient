@@ -513,15 +513,26 @@ class XMLCmd(metaclass=LogBase):
         cmd = self.create_cmd("ERASE-FLASH", content)
         return cmd
 
-    def cmd_flash_update(self):
+    def cmd_flash_update(self, scatter_file: str, backup_folder: str,
+                         flash_list, path_separator: str = "/"):
+        """Build the V6 CMD:FLASH-UPDATE (Firmware Upgrade) command.
+
+        flash_list is an iterable of (partition_name, host_file_path). The DA
+        reads the scatter, backs up protected partitions into backup_folder,
+        then requests each listed image back from the host by its path.
+        """
+        pts = ""
+        for partition_name, file_path in flash_list:
+            pts += f"<pt name=\"{partition_name}\">{file_path}</pt>"
         content = {
             "arg": [
-                "<path_separator>/</path_separator>",
-                "<source_file>D:/scatter.xml</source_file>",
-                "<backup_folder>D:/backup</backup_folder>"
+                f"<path_separator>{path_separator}</path_separator>",
+                f"<source_file>{scatter_file}</source_file>",
+                f"<backup_folder>{backup_folder}</backup_folder>",
+                f"<flash_list>{pts}</flash_list>"
             ]
         }
-        cmd = self.create_cmd("FLASH-UPDATE", content)
+        cmd = self.create_cmd("FLASH-UPDATE", content, version="2.0")
         return cmd
 
     def cmd_write_partitions(self, partitions):

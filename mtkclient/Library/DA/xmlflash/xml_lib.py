@@ -1035,6 +1035,194 @@ class DAXML(metaclass=LogBase):
             self.error("Error on format.")
         return False
 
+    @staticmethod
+    def chk16(data: bytes) -> int:
+        """Packet checksum used by the V6 DOWNLOAD-FILE host responder.
+
+        Sum of the buffer read as little-endian 32-bit words over the
+        4-byte-aligned region, plus the remaining tail bytes, truncated to
+        16 bits. Matches libflash function_download_data.
+        """
+        total = 0
+        aligned = len(data) & ~3
+        for pos in range(0, aligned, 4):
+            total += int.from_bytes(data[pos:pos + 4], "little")
+        for pos in range(aligned, len(data)):
+            total += data[pos]
+        return total & 0xFFFF
+
+    def serve_download_file(self, result: DwnFile, display: bool = True) -> bool:
+        """Stream a local file to the device for a DA CMD:DOWNLOAD-FILE request.
+
+        Reads result.source_file in packet_length chunks so multi-GB images
+        (super/userdata) never load fully into memory.
+        """
+        path = result.source_file
+        if not os.path.isfile(path):
+            self.error(f"DA requested a file the host doesn't have: {path}")
+            self.xsend("ERR")
+            self.get_response()
+            return False
+        do_chk = result.checksum != "CHK_NO"
+        packet_length = result.packet_length or 0x1000
+        size = os.path.getsize(path)
+        self.debug(f"DOWNLOAD-FILE {os.path.basename(path)} size={hex(size)} "
+                   f"packet={hex(packet_length)} checksum={result.checksum} "
+                   f"info={result.info}")
+        pg = progress(total=size, prefix=f"Flashing {os.path.basename(path)}:",
+                      guiprogress=self.mtk.config.guiprogress)
+        self.ack_value(size)
+        resp = self.get_response()
+        if resp != "OK":
+            self.error(f"Device rejected transfer start for {path}: {resp!r}")
+            return False
+        sent = 0
+        with open(path, "rb") as handle:
+            while sent < size:
+                chunk = handle.read(packet_length)
+                if not chunk:
+                    break
+                self.ack_value(self.chk16(chunk) if do_chk else 0)
+                resp = self.get_response()
+                if "OK" not in resp:
+                    self.error(f"Device NAK on status at {hex(sent)} of {path}: {resp!r}")
+                    return False
+                self.xsend(data=chunk)
+                resp = self.get_response()
+                if "OK" not in resp:
+                    self.error(f"Device NAK on data at {hex(sent)} of {path}: {resp!r}")
+                    return False
+                sent += len(chunk)
+                if display:
+                    pg.update(len(chunk))
+        if display:
+            pg.done()
+        # No completion ack here: libflash's function_download_data sends
+        # nothing after the last data packet (LABEL_73 falls straight to the
+        # return). An extra ack shifts the whole stream by one message and the
+        # next file's first packet status gets NAKed. The DA now issues its
+        # next request, which the fwflash loop reads.
+        return True
+
+    def drain_progress(self) -> None:
+        """Consume one CMD:PROGRESS-REPORT exchange.
+
+        The DA sends a series of status lines, each acked, ending with
+        OK!EOT (libflash function_report_progress). get_command_result()
+        already drains the first report it sees, but the DA sends several
+        in a row during an upgrade, so the fwflash loop drains the rest.
+        """
+        self.ack()
+        data = ""
+        while data != "OK!EOT":
+            data = self.get_response()
+            if data == "":
+                return
+            self.debug(f"DA progress: {data}")
+            self.ack()
+
+    def serve_upload_file(self, result: UpFile) -> bool:
+        """Receive a device backup into result.target_file for CMD:UPLOAD-FILE."""
+        target = result.target_file
+        directory = os.path.dirname(target)
+        if directory and not os.path.isdir(directory):
+            os.makedirs(directory, exist_ok=True)
+        self.info(f"Backing up to {target}")
+        ok = self.download_raw(result, filename=target, display=True)
+        if ok is False:
+            return False
+        # download_raw consumes its own transfer; the fwflash loop reads the
+        # DA's next request. Don't consume CMD:END/START here.
+        return True
+
+    def serve_filesys(self, result: FileSysOp) -> bool:
+        """Answer a DA CMD:FILE-SYS-OPERATION against the host filesystem."""
+        key = result.key
+        path = result.file_path
+        exists = os.path.exists(path)
+        if key == "FILE-SIZE":
+            if exists and os.path.isfile(path):
+                self.ack_value(os.path.getsize(path))
+            else:
+                self.ack()
+        elif key == "EXISTS":
+            self.ack_text("EXISTS" if exists else "NOT-EXISTS")
+        elif key == "MKDIR":
+            if not exists:
+                os.makedirs(path, exist_ok=True)
+            self.ack()
+        elif key == "REMOVE":
+            if exists:
+                if os.path.isdir(path):
+                    os.rmdir(path)
+                else:
+                    os.remove(path)
+            self.ack()
+        elif key == "REMOVE-ALL":
+            if exists:
+                import shutil
+                shutil.rmtree(path, ignore_errors=True)
+            self.ack()
+        else:
+            self.error(f"Unsupported file-sys op from DA: {key}")
+            self.xsend("ERR!UNSUPPORTED")
+            return False
+        return True
+
+    def fwflash(self, package, storage: str, backup_folder: str, display: bool = True) -> bool:
+        """Firmware Upgrade: send CMD:FLASH-UPDATE and serve the DA's requests.
+
+        The DA drives the whole sequence (backup of protected partitions,
+        format, download, restore); this host side only answers its file and
+        filesystem requests until it reports CMD:END.
+        """
+        # Set once the DA accepts FLASH-UPDATE: from then on the device may
+        # have been modified, so callers must not silently retry.
+        self.fw_accepted = False
+        dl = package.download_list(storage)
+        if not dl:
+            self.error(f"No downloadable partitions with images for storage {storage}.")
+            return False
+        os.makedirs(backup_folder, exist_ok=True)
+        flash_list = [(part.name, part.filename) for part in dl]
+        self.info(f"Starting Firmware Upgrade: {len(flash_list)} partitions, "
+                  f"storage {storage}, backup dir {backup_folder}")
+        xmldata = self.cmd.cmd_flash_update(scatter_file=package.scatter_path,
+                                            backup_folder=backup_folder,
+                                            flash_list=flash_list)
+        if not self.xsend(data=xmldata):
+            self.error("Failed to send FLASH-UPDATE command.")
+            return False
+        if self.get_response() != "OK":
+            self.error("Device did not accept FLASH-UPDATE command.")
+            return False
+        self.fw_accepted = True
+        while True:
+            cmd, result = self.get_command_result()
+            if cmd == "CMD:DOWNLOAD-FILE" and isinstance(result, DwnFile):
+                if not self.serve_download_file(result, display=display):
+                    return False
+            elif cmd == "CMD:UPLOAD-FILE" and isinstance(result, UpFile):
+                if not self.serve_upload_file(result):
+                    return False
+            elif cmd == "CMD:FILE-SYS-OPERATION" and isinstance(result, FileSysOp):
+                if not self.serve_filesys(result):
+                    return False
+            elif cmd == "CMD:PROGRESS-REPORT":
+                self.drain_progress()
+            elif cmd == "CMD:START":
+                continue
+            elif cmd == "CMD:END":
+                if result == "OK":
+                    self.info("Firmware Upgrade finished.")
+                    self.ack()
+                    return True
+                self.error(f"Firmware Upgrade failed: {result}")
+                return False
+            else:
+                self.error(f"Unexpected DA command during upgrade: {cmd} / {result}")
+                return False
+
     def shutdown(self, async_mode: int = 0, dl_bit: int = 0, bootmode: ShutDownModes = ShutDownModes.NORMAL):
         if bootmode == ShutDownModes.FASTBOOT:
             self.send_command(self.cmd.cmd_set_boot_mode(mode=BootModes.fastboot))
