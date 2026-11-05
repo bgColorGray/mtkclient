@@ -1066,11 +1066,15 @@ class DAXML(metaclass=LogBase):
         do_chk = result.checksum != "CHK_NO"
         packet_length = result.packet_length or 0x1000
         size = os.path.getsize(path)
+        self.debug(f"DOWNLOAD-FILE {os.path.basename(path)} size={hex(size)} "
+                   f"packet={hex(packet_length)} checksum={result.checksum} "
+                   f"info={result.info}")
         pg = progress(total=size, prefix=f"Flashing {os.path.basename(path)}:",
                       guiprogress=self.mtk.config.guiprogress)
         self.ack_value(size)
-        if self.get_response() != "OK":
-            self.error(f"Device rejected transfer start for {path}")
+        resp = self.get_response()
+        if resp != "OK":
+            self.error(f"Device rejected transfer start for {path}: {resp!r}")
             return False
         sent = 0
         with open(path, "rb") as handle:
@@ -1079,22 +1083,25 @@ class DAXML(metaclass=LogBase):
                 if not chunk:
                     break
                 self.ack_value(self.chk16(chunk) if do_chk else 0)
-                if "OK" not in self.get_response():
-                    self.error(f"Device NAK on status at {hex(sent)} of {path}")
+                resp = self.get_response()
+                if "OK" not in resp:
+                    self.error(f"Device NAK on status at {hex(sent)} of {path}: {resp!r}")
                     return False
                 self.xsend(data=chunk)
-                if "OK" not in self.get_response():
-                    self.error(f"Device NAK on data at {hex(sent)} of {path}")
+                resp = self.get_response()
+                if "OK" not in resp:
+                    self.error(f"Device NAK on data at {hex(sent)} of {path}: {resp!r}")
                     return False
                 sent += len(chunk)
                 if display:
                     pg.update(len(chunk))
         if display:
             pg.done()
-        # Final completion ack for this file. The DA then issues its next
-        # request (another file, a filesys op, or CMD:END); the fwflash loop
-        # reads it. Each sub-operation never consumes the next command.
-        self.ack()
+        # No completion ack here: libflash's function_download_data sends
+        # nothing after the last data packet (LABEL_73 falls straight to the
+        # return). An extra ack shifts the whole stream by one message and the
+        # next file's first packet status gets NAKed. The DA now issues its
+        # next request, which the fwflash loop reads.
         return True
 
     def serve_upload_file(self, result: UpFile) -> bool:
