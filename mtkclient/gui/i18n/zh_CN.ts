@@ -27,266 +27,304 @@
 <context>
     <name>FlashWindow</name>
     <message>
-        <location filename="../flash/flash_window.py" line="67" />
-        <source>MTK Firmware Flasher</source>
-        <translation>MTK 固件刷写工具</translation>
-    </message>
-    <message>
-        <location filename="../flash/flash_window.py" line="73" />
+        <location filename="../flash/flash_window.py" line="74" />
         <source>No package loaded</source>
         <translation>未加载刷机包</translation>
     </message>
     <message>
-        <location filename="../flash/flash_window.py" line="85" />
+        <location filename="../flash/flash_window.py" line="116" />
         <source>Firmware package</source>
         <translation>刷机包</translation>
     </message>
     <message>
-        <source>Options</source>
-        <translation type="vanished">选项</translation>
-    </message>
-    <message>
-        <location filename="../flash/flash_window.py" line="89" />
-        <location filename="../flash/flash_window.py" line="170" />
+        <location filename="../flash/flash_window.py" line="120" />
+        <location filename="../flash/flash_window.py" line="201" />
         <source>Mode</source>
         <translation>刷机模式</translation>
     </message>
     <message>
-        <location filename="../flash/flash_window.py" line="97" />
+        <location filename="../flash/flash_window.py" line="128" />
         <source>Firmware Flasher</source>
         <translation>固件刷写</translation>
     </message>
     <message>
-        <location filename="../flash/flash_window.py" line="114" />
+        <location filename="../flash/flash_window.py" line="145" />
         <source>Select the package's download_agent/flash.xml</source>
         <translation>选择刷机包里的 download_agent/flash.xml</translation>
     </message>
     <message>
-        <location filename="../flash/flash_window.py" line="116" />
-        <location filename="../flash/flash_window.py" line="206" />
+        <location filename="../flash/flash_window.py" line="147" />
+        <location filename="../flash/flash_window.py" line="244" />
         <source>Choose...</source>
         <translation>选择…</translation>
     </message>
     <message>
-        <location filename="../flash/flash_window.py" line="123" />
+        <location filename="../flash/flash_window.py" line="154" />
         <source>No package loaded.</source>
         <translation>未加载刷机包。</translation>
     </message>
     <message>
-        <location filename="../flash/flash_window.py" line="129" />
+        <location filename="../flash/flash_window.py" line="160" />
         <source>Select all</source>
         <translation>全选</translation>
     </message>
     <message>
-        <location filename="../flash/flash_window.py" line="134" />
+        <location filename="../flash/flash_window.py" line="165" />
         <source>Partitions to write</source>
         <translation>待写入的分区</translation>
     </message>
     <message>
-        <location filename="../flash/flash_window.py" line="142" />
+        <location filename="../flash/flash_window.py" line="173" />
         <source>Partition</source>
         <translation>分区</translation>
     </message>
     <message>
-        <location filename="../flash/flash_window.py" line="142" />
+        <location filename="../flash/flash_window.py" line="173" />
         <source>Image file</source>
         <translation>镜像文件</translation>
     </message>
     <message>
-        <location filename="../flash/flash_window.py" line="143" />
+        <location filename="../flash/flash_window.py" line="174" />
         <source>Start address</source>
         <translation>起始地址</translation>
     </message>
     <message>
-        <location filename="../flash/flash_window.py" line="143" />
+        <location filename="../flash/flash_window.py" line="174" />
         <source>Size</source>
         <translation>大小</translation>
     </message>
     <message>
-        <location filename="../flash/flash_window.py" line="163" />
+        <location filename="../flash/flash_window.py" line="194" />
         <source>Firmware Upgrade</source>
         <translation>固件升级</translation>
     </message>
     <message>
-        <location filename="../flash/flash_window.py" line="164" />
+        <location filename="../flash/flash_window.py" line="195" />
         <source>Download Only</source>
         <translation>仅下载</translation>
     </message>
     <message>
-        <location filename="../flash/flash_window.py" line="165" />
+        <location filename="../flash/flash_window.py" line="196" />
         <source>Format All + Download</source>
         <translation>全部格式化和下载</translation>
     </message>
     <message>
-        <location filename="../flash/flash_window.py" line="182" />
+        <location filename="../flash/flash_window.py" line="213" />
         <source>The download agent backs up the protected partitions (nvram, protect) and restores them afterwards.</source>
         <translation>DA 会先备份受保护的分区（nvram、protect），写入完成后再还原。</translation>
     </message>
     <message>
-        <location filename="../flash/flash_window.py" line="185" />
+        <location filename="../flash/flash_window.py" line="216" />
         <source>Writes only the ticked partitions. Everything else, including user data, is left untouched.</source>
         <translation>只写入勾选的分区，其他内容（包括用户数据）一律不动。</translation>
     </message>
     <message>
-        <location filename="../flash/flash_window.py" line="188" />
+        <location filename="../flash/flash_window.py" line="219" />
         <source>Erases the entire flash first. Nothing is kept — user data, IMEI and calibration data are all lost.</source>
         <translation>会先擦除整个闪存，不保留任何内容 —— 用户数据、IMEI、校准数据全部丢失。</translation>
     </message>
     <message>
-        <location filename="../flash/flash_window.py" line="200" />
+        <location filename="../flash/flash_window.py" line="235" />
         <source>Auto-detect</source>
         <translation>自动识别</translation>
     </message>
     <message>
-        <location filename="../flash/flash_window.py" line="205" />
+        <location filename="../flash/flash_window.py" line="243" />
         <source>Default: mtk_fwbackup next to the package</source>
         <translation>默认：刷机包同级目录下的 mtk_fwbackup</translation>
     </message>
     <message>
-        <location filename="../flash/flash_window.py" line="208" />
+        <location filename="../flash/flash_window.py" line="246" />
         <source>Storage</source>
         <translation>存储类型</translation>
     </message>
     <message>
-        <location filename="../flash/flash_window.py" line="211" />
+        <location filename="../flash/flash_window.py" line="249" />
         <source>Backup folder</source>
         <translation>备份目录</translation>
     </message>
     <message>
-        <location filename="../flash/flash_window.py" line="218" />
+        <location filename="../flash/flash_window.py" line="256" />
         <source>Start flashing</source>
         <translation>开始刷机</translation>
     </message>
     <message>
-        <location filename="../flash/flash_window.py" line="221" />
+        <location filename="../flash/flash_window.py" line="259" />
         <source>Stop</source>
         <translation>停止</translation>
     </message>
     <message>
-        <location filename="../flash/flash_window.py" line="256" />
-        <location filename="../flash/flash_window.py" line="455" />
+        <location filename="../flash/flash_window.py" line="294" />
+        <location filename="../flash/flash_window.py" line="504" />
         <source>Show log</source>
         <translation>显示日志</translation>
     </message>
     <message>
-        <location filename="../flash/flash_window.py" line="273" />
+        <location filename="../flash/flash_window.py" line="311" />
         <source>Select flash.xml</source>
         <translation>选择 flash.xml</translation>
     </message>
     <message>
-        <location filename="../flash/flash_window.py" line="281" />
+        <location filename="../flash/flash_window.py" line="319" />
         <source>Cannot read package</source>
         <translation>无法读取刷机包</translation>
     </message>
     <message>
-        <location filename="../flash/flash_window.py" line="287" />
+        <location filename="../flash/flash_window.py" line="325" />
         <source>layouts</source>
         <translation>布局</translation>
     </message>
     <message>
-        <location filename="../flash/flash_window.py" line="291" />
+        <location filename="../flash/flash_window.py" line="329" />
         <source>Ready — connect the phone</source>
         <translation>就绪 —— 请连接手机</translation>
     </message>
     <message>
-        <location filename="../flash/flash_window.py" line="345" />
+        <location filename="../flash/flash_window.py" line="385" />
         <source>{count} partitions · {size}</source>
         <translation>{count} 个分区 · {size}</translation>
     </message>
     <message>
-        <location filename="../flash/flash_window.py" line="350" />
+        <location filename="../flash/flash_window.py" line="396" />
         <source>Select backup folder</source>
         <translation>选择备份目录</translation>
     </message>
     <message>
-        <location filename="../flash/flash_window.py" line="364" />
-        <source>Mode: {mode}
-{detail}
-
-{count} partitions will be written. Continue?</source>
-        <translation>模式：{mode}
-{detail}
-
-将写入 {count} 个分区。是否继续？</translation>
-    </message>
-    <message>
-        <location filename="../flash/flash_window.py" line="369" />
-        <source>THE WHOLE FLASH WILL BE ERASED FIRST.
-
-</source>
-        <translation>将先擦除整个闪存。
-
-</translation>
-    </message>
-    <message>
-        <location filename="../flash/flash_window.py" line="371" />
-        <source>Confirm flashing</source>
-        <translation>确认刷机</translation>
-    </message>
-    <message>
-        <source>This erases and rewrites {count} partitions on the phone.
-
-Continue?</source>
-        <translation type="vanished">这会擦除并重写手机上的 {count} 个分区。
-
-是否继续？</translation>
-    </message>
-    <message>
-        <location filename="../flash/flash_window.py" line="391" />
+        <location filename="../flash/flash_window.py" line="431" />
         <source>Power the phone off, hold both volume keys and plug in the USB cable.</source>
         <translation>将手机关机，按住音量上下键，然后插入 USB 线。</translation>
     </message>
     <message>
-        <location filename="../flash/flash_window.py" line="397" />
+        <location filename="../flash/flash_window.py" line="438" />
         <source>Stopping after the current step...</source>
         <translation>将在当前步骤结束后停止…</translation>
     </message>
     <message>
-        <location filename="../flash/flash_window.py" line="416" />
+        <location filename="../flash/flash_window.py" line="457" />
         <source>Do not unplug the cable.</source>
         <translation>请勿拔出数据线。</translation>
     </message>
     <message>
-        <location filename="../flash/flash_window.py" line="432" />
+        <location filename="../flash/flash_window.py" line="473" />
         <source>Overall {pct:.1f}% — {done} of {total}</source>
         <translation>总进度 {pct:.1f}% —— 已完成 {done} / {total}</translation>
     </message>
     <message>
-        <location filename="../flash/flash_window.py" line="442" />
+        <location filename="../flash/flash_window.py" line="491" />
         <source>Done</source>
         <translation>完成</translation>
     </message>
     <message>
-        <location filename="../flash/flash_window.py" line="444" />
+        <location filename="../flash/flash_window.py" line="493" />
         <source>Flashing stopped</source>
         <translation>刷机已中止</translation>
     </message>
     <message>
-        <location filename="../flash/flash_window.py" line="455" />
+        <location filename="../flash/flash_window.py" line="504" />
         <source>Hide log</source>
         <translation>隐藏日志</translation>
     </message>
     <message>
-        <location filename="../flash/flash_window.py" line="460" />
+        <location filename="../flash/flash_window.py" line="509" />
         <source>Flashing in progress</source>
         <translation>正在刷机</translation>
     </message>
     <message>
-        <location filename="../flash/flash_window.py" line="462" />
+        <location filename="../flash/flash_window.py" line="511" />
         <source>Closing now may leave the phone in an unusable state. Close anyway?</source>
         <translation>此时关闭可能导致手机无法正常使用。仍要关闭吗？</translation>
     </message>
 </context>
 <context>
+    <name>FlashWorker</name>
+    <message>
+        <location filename="../flash/flash_worker.py" line="110" />
+        <source>Unexpected error: {err}</source>
+        <translation>意外错误：{err}</translation>
+    </message>
+    <message>
+        <location filename="../flash/flash_worker.py" line="118" />
+        <source>Could not read the package: {err}</source>
+        <translation>无法读取刷机包：{err}</translation>
+    </message>
+    <message>
+        <location filename="../flash/flash_worker.py" line="125" />
+        <source>Waiting for the phone (attempt {n})</source>
+        <translation>等待手机连接（第 {n} 次）</translation>
+    </message>
+    <message>
+        <location filename="../flash/flash_worker.py" line="135" />
+        <source>{msg} — waiting for the next connection.</source>
+        <translation>{msg} —— 等待下一次连接。</translation>
+    </message>
+    <message>
+        <location filename="../flash/flash_worker.py" line="140" />
+        <source>Stopped.</source>
+        <translation>已停止。</translation>
+    </message>
+    <message>
+        <location filename="../flash/flash_worker.py" line="173" />
+        <source>No phone detected</source>
+        <translation>未检测到手机</translation>
+    </message>
+    <message>
+        <location filename="../flash/flash_worker.py" line="177" />
+        <source>Could not load the download agent</source>
+        <translation>无法加载 DA</translation>
+    </message>
+    <message>
+        <location filename="../flash/flash_worker.py" line="181" />
+        <source>This device does not use a V6 (XML) DA</source>
+        <translation>该设备不使用 V6（XML）DA</translation>
+    </message>
+    <message>
+        <location filename="../flash/flash_worker.py" line="190" />
+        <source>Device storage is {detected} but the {storage} layout was selected; refusing to flash</source>
+        <translation>设备存储是 {detected}，但选择的是 {storage} 布局，已拒绝刷写</translation>
+    </message>
+    <message>
+        <location filename="../flash/flash_worker.py" line="193" />
+        <source>The package has no {storage} layout</source>
+        <translation>刷机包里没有 {storage} 布局</translation>
+    </message>
+    <message>
+        <location filename="../flash/flash_worker.py" line="196" />
+        <source>Connected · {storage}</source>
+        <translation>已连接 · {storage}</translation>
+    </message>
+    <message>
+        <location filename="../flash/flash_worker.py" line="202" />
+        <source>No partitions selected</source>
+        <translation>未选择任何分区</translation>
+    </message>
+    <message>
+        <location filename="../flash/flash_worker.py" line="204" />
+        <source>Missing image files: {names}</source>
+        <translation>缺少镜像文件：{names}</translation>
+    </message>
+    <message>
+        <location filename="../flash/flash_worker.py" line="215" />
+        <source>Flashing {count} partitions</source>
+        <translation>正在刷写 {count} 个分区</translation>
+    </message>
+    <message>
+        <location filename="../flash/flash_worker.py" line="221" />
+        <source>Flashing completed</source>
+        <translation>刷机完成</translation>
+    </message>
+    <message>
+        <location filename="../flash/flash_worker.py" line="223" />
+        <source>Flashing failed after it had started</source>
+        <translation>刷写开始后失败</translation>
+    </message>
+    <message>
+        <location filename="../flash/flash_worker.py" line="226" />
+        <source>The device did not accept the flash command</source>
+        <translation>设备未接受刷写命令</translation>
+    </message>
+</context>
+<context>
     <name>MainWindow</name>
-    <message>
-        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=" font-weight:600;"&gt;Step 1:&lt;/span&gt;&lt;/p&gt;&lt;p&gt;Power off the phone&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation type="vanished">&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=" font-weight:600;"&gt;Step 1:&lt;/span&gt;&lt;/p&gt;&lt;p&gt;把手机关机&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
-    </message>
-    <message>
-        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=" font-weight:600;"&gt;Step 2:&lt;/span&gt;&lt;/p&gt;&lt;p&gt;Connect the USB cable, hold both volume buttons if needed&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation type="vanished">&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=" font-weight:600;"&gt;Step 2:&lt;/span&gt;&lt;/p&gt;&lt;p&gt;连接 USB 数据线，如果需要，按住两个音量按钮&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
-    </message>
     <message>
         <location filename="../main_gui.ui" line="144" />
         <source>No phone detected.</source>
@@ -308,22 +346,6 @@ Continue?</source>
         <location filename="../main_gui.ui" line="689" />
         <source>Select all partitions</source>
         <translation>选中所有分区</translation>
-    </message>
-    <message>
-        <source>Select partitions to read</source>
-        <translation type="vanished">选择需要备份的分区</translation>
-    </message>
-    <message>
-        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;No connection? Try shorting the test point to ground&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation type="vanished">无法连接？尝试把测试点短接到 GND</translation>
-    </message>
-    <message>
-        <source>Show Debug Log</source>
-        <translation type="vanished">显示调试日志</translation>
-    </message>
-    <message>
-        <source>Connection settings</source>
-        <translation type="vanished">连接设置</translation>
     </message>
     <message>
         <location filename="../main_gui.ui" line="529" />
@@ -501,10 +523,6 @@ Continue?</source>
         <translation>调试日志</translation>
     </message>
     <message>
-        <source>Instructions</source>
-        <translation type="vanished">指令</translation>
-    </message>
-    <message>
         <location filename="../main_gui.ui" line="1093" />
         <source>&amp;File</source>
         <translation>&amp;文件</translation>
@@ -565,7 +583,7 @@ Continue?</source>
         <translation>&amp;退出</translation>
     </message>
     <message>
-        <location filename="../../../mtk_gui.py" line="508" />
+        <location filename="../../../mtk_gui.py" line="468" />
         <source>Done.</source>
         <translation>完成。</translation>
     </message>
@@ -658,33 +676,25 @@ Continue?</source>
 <context>
     <name>main</name>
     <message>
-        <location filename="../../../mtk_gui.py" line="364" />
-        <location filename="../../../mtk_gui.py" line="374" />
+        <location filename="../../../mtk_gui.py" line="324" />
+        <location filename="../../../mtk_gui.py" line="334" />
         <source> left</source>
         <translation> 剩余</translation>
     </message>
     <message>
-        <source>Error reading gpt</source>
-        <translation type="vanished">读取 GPT 时出错</translation>
-    </message>
-    <message>
-        <source>Select partitions to dump</source>
-        <translation type="vanished">选择要备份的分区</translation>
-    </message>
-    <message>
-        <location filename="../../../mtk_gui.py" line="552" />
+        <location filename="../../../mtk_gui.py" line="512" />
         <source>Set</source>
         <translation>设置</translation>
     </message>
     <message>
-        <location filename="../../../mtk_gui.py" line="604" />
+        <location filename="../../../mtk_gui.py" line="564" />
         <source>Phone detected:
 Reading model info...</source>
         <translation>检测到手机：
 正在读取型号信息...</translation>
     </message>
     <message>
-        <location filename="../../../mtk_gui.py" line="636" />
+        <location filename="../../../mtk_gui.py" line="596" />
         <source>Error initialising. Did you install the drivers?</source>
         <translation>初始化时出错。是否正确安装驱动程序？</translation>
     </message>
@@ -719,38 +729,6 @@ Reading model info...</source>
 </context>
 <context>
     <name>self.config</name>
-    <message>
-        <source>Error on sending brom stage</source>
-        <translation type="vanished">发送 brom stage 时出错</translation>
-    </message>
-    <message>
-        <source>Reconnecting to preloader</source>
-        <translation type="vanished">重新连接到 preloader</translation>
-    </message>
-    <message>
-        <source>Connected to preloader</source>
-        <translation type="vanished">已连接到 preloader</translation>
-    </message>
-    <message>
-        <source>Uploading stage 1</source>
-        <translation type="vanished">上传 stage 1</translation>
-    </message>
-    <message>
-        <source>Successfully uploaded stage 1, sending stage 2</source>
-        <translation type="vanished">已成功上传 stage 1，正在发送 stage 2</translation>
-    </message>
-    <message>
-        <source>Done sending stage 2</source>
-        <translation type="vanished">已完成发送 stage 2</translation>
-    </message>
-    <message>
-        <source>Stage2 verification passed.</source>
-        <translation type="vanished">Stage2 验证通过。</translation>
-    </message>
-    <message>
-        <source>Done jumping stage2 at %08X</source>
-        <translation type="vanished">跳转 stage2 已在 %08X 完成</translation>
-    </message>
     <message>
         <location filename="../../Library/meta.py" line="149" />
         <location filename="../../Library/mtk_preloader.py" line="156" />

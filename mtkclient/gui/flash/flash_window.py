@@ -406,21 +406,14 @@ class FlashWindow(QMainWindow):
         names = self.selected_partitions()
         if not names:
             return
+        # No confirmation dialog: like SP Flash Tool, pressing the button is
+        # the decision. The mode line above already spells out what happens.
         mode = self.mode_box.currentData()
-        question = self.tr("Mode: {mode}\n{detail}\n\n"
-                           "{count} partitions will be written. Continue?").format(
-            mode=self.mode_box.currentText(),
-            detail=self._mode_hint_text(mode),
-            count=len(names))
-        if mode == MODE_FORMAT_ALL:
-            question = self.tr("THE WHOLE FLASH WILL BE ERASED FIRST.\n\n") + question
-        answer = QMessageBox.warning(
-            self, self.tr("Confirm flashing"), question,
-            QMessageBox.Yes | QMessageBox.Cancel, QMessageBox.Cancel)
-        if answer != QMessageBox.Yes:
-            return
-
         self.log_box.clear()
+        self.file_bar.setValue(0)
+        self.overall_bar.setValue(0)
+        self.file_label.clear()
+        self.overall_label.clear()
         self.worker = FlashWorker(flash_xml=self.path_edit.text(),
                                   selected=names,
                                   storage=self.storage_box.currentData(),

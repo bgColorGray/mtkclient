@@ -54,12 +54,14 @@ def user_data_dir() -> str:
 class FlashWorker(QObject):
     """Runs one flashing job; lives on its own QThread."""
 
+    # Byte counts travel as `object`: a Signal(int) is a 32-bit C int, so a
+    # 9 GB userdata image wrapped around and showed as 989 MB.
     log = Signal(str)
     phase = Signal(str, str)            # phase, human-readable detail
     device = Signal(str)                # chip / storage description
-    file_started = Signal(str, int)     # image name, size in bytes
-    file_progress = Signal(int)         # bytes done within current image
-    overall = Signal(int, int)          # bytes done, total bytes
+    file_started = Signal(str, object)  # image name, size in bytes
+    file_progress = Signal(object)      # bytes done within current image
+    overall = Signal(object, object)    # bytes done, total bytes
     finished = Signal(bool, str)        # success, message
 
     def __init__(self, flash_xml: str, selected: list, storage: str = None,
@@ -105,7 +107,7 @@ class FlashWorker(QObject):
         try:
             self._run()
         except Exception as err:  # keep the UI alive on any unexpected error
-            self.log.emit(f"Unexpected error: {err}")
+            self.log.emit(self.tr("Unexpected error: {err}").format(err=err))
             self.phase.emit(PHASE_FAILED, str(err))
             self.finished.emit(False, str(err))
 
@@ -113,14 +115,14 @@ class FlashWorker(QObject):
         try:
             package = parse_flash_xml(self.flash_xml)
         except (ValueError, FileNotFoundError) as err:
-            self.finished.emit(False, f"Could not read the package: {err}")
+            self.finished.emit(False, self.tr("Could not read the package: {err}").format(err=err))
             return
 
         attempt = 0
         while not self._stop:
             attempt += 1
             self.phase.emit(PHASE_WAITING,
-                            f"Waiting for the phone (attempt {attempt})")
+                            self.tr("Waiting for the phone (attempt {n})").format(n=attempt))
             ok, retry, msg = self._attempt(package)
             if ok:
                 self.phase.emit(PHASE_DONE, msg)
@@ -130,12 +132,12 @@ class FlashWorker(QObject):
                 self.phase.emit(PHASE_FAILED, msg)
                 self.finished.emit(False, msg)
                 return
-            self.log.emit(f"{msg} — waiting for the next connection.")
+            self.log.emit(self.tr("{msg} — waiting for the next connection.").format(msg=msg))
             for _ in range(RETRY_DELAY * 10):
                 if self._stop:
                     break
                 time.sleep(0.1)
-        self.finished.emit(False, "Stopped.")
+        self.finished.emit(False, self.tr("Stopped."))
 
     def _attempt(self, package):
         """One connect-and-flash attempt.
@@ -167,14 +169,14 @@ class FlashWorker(QObject):
         # config alone is not enough; the directory has to be passed here.
         mtk = handler.connect(mtk, directory=data_dir)
         if mtk is None:
-            return False, True, "No phone detected"
+            return False, True, self.tr("No phone detected")
         mtk = handler.configure_da(mtk)
         if mtk is None:
-            return False, True, "Could not load the download agent"
+            return False, True, self.tr("Could not load the download agent")
 
         da = mtk.daloader.da
         if not isinstance(da, DAXML):
-            return False, False, "This device does not use a V6 (XML) DA"
+            return False, False, self.tr("This device does not use a V6 (XML) DA")
 
         detected = getattr(da.daconfig.storage, "storagetype", None)
         if detected not in ("EMMC", "UFS"):
@@ -184,21 +186,22 @@ class FlashWorker(QObject):
             return False, True, "Could not detect the storage type (EMMC/UFS)"
         if detected and storage != detected:
             return (False, False,
-                    f"Device storage is {detected} but the {storage} layout "
-                    "was selected; refusing to flash")
+                    self.tr("Device storage is {detected} but the {storage} layout "
+                            "was selected; refusing to flash").format(
+                        detected=detected, storage=storage))
         if storage not in package.storage_names():
-            return False, False, f"The package has no {storage} layout"
+            return False, False, self.tr("The package has no {storage} layout").format(storage=storage)
 
         self.device.emit(f"{mtk.config.chipconfig.name} · {storage}")
-        self.phase.emit(PHASE_CONNECTED, f"Connected · {storage}")
+        self.phase.emit(PHASE_CONNECTED, self.tr("Connected · {storage}").format(storage=storage))
 
         parts = [p for p in package.download_list(storage)
                  if not self.selected or p.name in self.selected]
         if not parts:
-            return False, False, "No partitions selected"
+            return False, False, self.tr("No partitions selected")
         missing = [p.name for p in parts if not os.path.isfile(p.filename)]
         if missing:
-            return False, False, f"Missing image files: {', '.join(missing)}"
+            return False, False, self.tr("Missing image files: {names}").format(names=", ".join(missing))
 
         self._total = sum(os.path.getsize(p.filename) for p in parts)
         self._done_before_current = 0
@@ -208,15 +211,16 @@ class FlashWorker(QObject):
         backup = self.backup or os.path.join(package.root, "mtk_fwbackup")
         da.fw_on_file = self._on_file
         config.guiprogress = _SignalShim(self._on_bytes)
-        self.phase.emit(PHASE_FLASHING, f"Flashing {len(parts)} partitions")
+        self.phase.emit(PHASE_FLASHING,
+                        self.tr("Flashing {count} partitions").format(count=len(parts)))
 
         trimmed = _SubsetPackage(package, storage, parts)
         ok = da.fwflash(trimmed, storage, backup, display=True, mode=self.mode)
         if ok:
-            return True, False, "Flashing completed"
+            return True, False, self.tr("Flashing completed")
         if da.fw_accepted:
-            return False, False, "Flashing failed after it had started"
-        return False, True, "The device did not accept the flash command"
+            return False, False, self.tr("Flashing failed after it had started")
+        return False, True, self.tr("The device did not accept the flash command")
 
 
 class _SignalShim:
