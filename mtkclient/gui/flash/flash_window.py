@@ -19,7 +19,7 @@ from mtkclient.Library.DA.flashpackage import (MODE_DOWNLOAD_ONLY,
                                                MODE_FIRMWARE_UPGRADE,
                                                MODE_FORMAT_ALL,
                                                parse_flash_xml)
-from mtkclient.gui.flash import flash_style
+from mtkclient.gui.flash import __version__, flash_style
 from mtkclient.gui.flash.flash_worker import (FlashWorker, PHASE_FLASHING,
                                               start_worker)
 
@@ -63,7 +63,7 @@ class FlashWindow(QMainWindow):
         self.worker = None
         self.thread = None
         self.current_total = 0
-        self.setWindowTitle(self.tr("MTK Firmware Flasher"))
+        self.setWindowTitle(f"{self.tr('MTK Firmware Flasher')}  {__version__}")
         self.resize(900, 760)
         self._palette = flash_style.DARK if dark else flash_style.LIGHT
         self.setStyleSheet(flash_style.stylesheet(dark))

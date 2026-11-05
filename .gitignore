@@ -21,3 +21,8 @@ mtk_venv/
 # Runtime artifacts
 hwparam.json
 logs/
+
+# PyInstaller output
+packaging/build/
+packaging/dist/
+packaging/icon.iconset/
