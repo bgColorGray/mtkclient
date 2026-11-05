@@ -1254,6 +1254,70 @@ class DaHandler(metaclass=LogBase):
         if self.mtk.daloader.poke(addr=addr, data=data):
             self.info(f"Successfully wrote data to {hex(addr)}, length {hex(len(data))}")
 
+    def da_fwflash(self, flash_xml: str, storage: str = None, backup: str = None,
+                   assume_yes: bool = False):
+        """SP Flash Tool V6 "Firmware Upgrade": flash a download package.
+
+        Parses flash.xml + scatter, picks the storage layout matching the
+        connected device, forces a full readback backup of the device, then
+        runs the native CMD:FLASH-UPDATE flow. Destructive: asks to confirm
+        unless assume_yes is set.
+        """
+        from mtkclient.Library.DA.flashpackage import parse_flash_xml
+        from mtkclient.Library.DA.xmlflash.xml_lib import DAXML
+
+        da = self.mtk.daloader.da
+        if not isinstance(da, DAXML):
+            self.error("Firmware Upgrade needs a V6 (XML) DA; this device isn't in XML DA mode.")
+            return False
+        if not os.path.isfile(flash_xml):
+            self.error(f"flash.xml not found: {flash_xml}")
+            return False
+        try:
+            pkg = parse_flash_xml(flash_xml)
+        except (ValueError, FileNotFoundError) as err:
+            self.error(f"Could not parse package: {err}")
+            return False
+
+        device_storage = getattr(da.daconfig.storage, "storagetype", None)
+        if storage is None:
+            storage = device_storage or ("EMMC" if "EMMC" in pkg.storage_names()
+                                         else pkg.storage_names()[0])
+        if storage not in pkg.storage_names():
+            self.error(f"Package has no {storage} layout; it has {pkg.storage_names()}.")
+            return False
+        if device_storage and device_storage != storage:
+            self.error(f"Refusing to flash: device storage is {device_storage} but you "
+                       f"selected the {storage} layout. Flashing the wrong layout can brick "
+                       f"the device.")
+            return False
+
+        missing = pkg.missing_images(storage)
+        if missing:
+            self.error("These download partitions have no image file on disk:")
+            for part in missing:
+                self.error(f"  {part.name} -> {part.filename}")
+            return False
+
+        dl = pkg.download_list(storage)
+        self.info(f"Project: {pkg.project}  build: {pkg.build_version}")
+        self.info(f"Storage: {storage}  partitions to flash: {len(dl)}")
+        for part in dl:
+            self.info(f"  {part.name:18} <- {os.path.basename(part.filename)}")
+
+        if not assume_yes:
+            self.error("This ERASES and rewrites the partitions above. "
+                       "Re-run with --yes to proceed.")
+            return False
+
+        if backup is None:
+            backup = os.path.join(os.path.dirname(os.path.abspath(flash_xml)),
+                                  "..", "mtk_fwbackup")
+            backup = os.path.normpath(backup)
+        self.info(f"Backup folder for DA-side partition backups: {backup}")
+
+        return da.fwflash(pkg, storage, backup, display=True)
+
     def handle_da_cmds(self, mtk, cmd: str, args):
         if mtk is None or mtk.daloader is None:
             self.error("Error on running da, aborting :(")
@@ -1342,6 +1406,9 @@ class DaHandler(metaclass=LogBase):
             directory = args.directory
             parttype = args.parttype
             self.da_wl(directory=directory, parttype=parttype)
+        elif cmd == "fwflash":
+            self.da_fwflash(flash_xml=args.flash_xml, storage=args.storage,
+                            backup=args.backup, assume_yes=args.yes)
         elif cmd == "wo":
             start = getint(args.offset)
             length = getint(args.length)

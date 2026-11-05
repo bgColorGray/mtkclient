@@ -23,6 +23,7 @@ CMDS_HELP = {
     "w": "Write partition from filename",
     "wf": "Write flash from filename",
     "wl": "Write partitions from directory path to flash",
+    "fwflash": "Flash an SP Flash Tool V6 package (Firmware Upgrade)",
     "wo": "Write flash starting at offset from filename",
     "e": "Erase partition",
     "es": "Erase partition with sector count",
@@ -203,6 +204,17 @@ def main():
     cmd_fs = subparsers.add_parser("fs", help="Mount as FUSE filesystem")
     cmd_fs.add_argument("mountpoint")
     cmd_fs.add_argument("--rw", action="store_true")
+
+    cmd_fw = subparsers.add_parser("fwflash", help=CMDS_HELP["fwflash"], parents=[base])
+    cmd_fw.add_argument("flash_xml",
+                        help="Path to the package's download_agent/flash.xml")
+    cmd_fw.add_argument("--storage", choices=["EMMC", "UFS"], default=None,
+                        help="Scatter storage layout (default: auto-detect from device)")
+    cmd_fw.add_argument("--backup", default=None,
+                        help="Folder for DA-side partition backups "
+                             "(default: mtk_fwbackup next to the package)")
+    cmd_fw.add_argument("--yes", action="store_true",
+                        help="Confirm the destructive flash (required to proceed)")
 
     subparsers.add_parser("reset", help="Send reset command", parents=[base])
     subparsers.add_parser("meta", help="Enter meta mode", parents=[base]) \
