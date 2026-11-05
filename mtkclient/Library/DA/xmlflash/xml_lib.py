@@ -1104,6 +1104,23 @@ class DAXML(metaclass=LogBase):
         # next request, which the fwflash loop reads.
         return True
 
+    def drain_progress(self) -> None:
+        """Consume one CMD:PROGRESS-REPORT exchange.
+
+        The DA sends a series of status lines, each acked, ending with
+        OK!EOT (libflash function_report_progress). get_command_result()
+        already drains the first report it sees, but the DA sends several
+        in a row during an upgrade, so the fwflash loop drains the rest.
+        """
+        self.ack()
+        data = ""
+        while data != "OK!EOT":
+            data = self.get_response()
+            if data == "":
+                return
+            self.debug(f"DA progress: {data}")
+            self.ack()
+
     def serve_upload_file(self, result: UpFile) -> bool:
         """Receive a device backup into result.target_file for CMD:UPLOAD-FILE."""
         target = result.target_file
@@ -1191,6 +1208,8 @@ class DAXML(metaclass=LogBase):
             elif cmd == "CMD:FILE-SYS-OPERATION" and isinstance(result, FileSysOp):
                 if not self.serve_filesys(result):
                     return False
+            elif cmd == "CMD:PROGRESS-REPORT":
+                self.drain_progress()
             elif cmd == "CMD:START":
                 continue
             elif cmd == "CMD:END":

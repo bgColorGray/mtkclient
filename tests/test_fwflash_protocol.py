@@ -101,6 +101,27 @@ def test_serve_filesys_remove_file(tmp_path):
     assert sent == ["OK\0"]
 
 
+def test_drain_progress_acks_each_line_until_eot():
+    sent = []
+    lines = iter(["OK!PROGRESS,10", "OK!PROGRESS,55", "OK!EOT"])
+    obj = _bare_daxml(lambda data, **k: sent.append(data) or True)
+    obj.get_response = lambda: next(lines)
+    obj.debug = lambda *a, **k: None
+    obj.drain_progress()
+    # one ack for the request plus one per line, including the EOT line
+    assert sent == ["OK\0"] * 4
+
+
+def test_drain_progress_stops_on_empty_response():
+    sent = []
+    lines = iter(["OK!PROGRESS,10", ""])
+    obj = _bare_daxml(lambda data, **k: sent.append(data) or True)
+    obj.get_response = lambda: next(lines)
+    obj.debug = lambda *a, **k: None
+    obj.drain_progress()
+    assert sent == ["OK\0", "OK\0"]
+
+
 def test_serve_filesys_unknown_key_errors(tmp_path):
     sent = []
     obj = _bare_daxml(lambda data, **k: sent.append(data) or True)
