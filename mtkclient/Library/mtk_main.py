@@ -83,6 +83,18 @@ class ArgHandler(metaclass=LogBase):
                 config.loader = args.loader
         except AttributeError:
             pass
+        # For fwflash, default the DA loader to the package's own <dagent>
+        # (e.g. DA_BR.bin) when the user didn't pass --loader, since the
+        # bundled loaders rarely cover the package's exact SoC.
+        try:
+            if getattr(args, "cmd", None) == "fwflash" and config.loader is None \
+                    and getattr(args, "flash_xml", None):
+                from mtkclient.Library.DA.flashpackage import parse_flash_xml
+                pkg = parse_flash_xml(args.flash_xml)
+                if pkg.da_loader and os.path.isfile(pkg.da_loader):
+                    config.loader = pkg.da_loader
+        except Exception:
+            pass
         try:
             if args.da_address is not None:
                 config.chipconfig.da_payload_addr = getint(args.da_address)

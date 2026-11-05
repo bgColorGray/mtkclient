@@ -1280,9 +1280,17 @@ class DaHandler(metaclass=LogBase):
             return False
 
         device_storage = getattr(da.daconfig.storage, "storagetype", None)
+        if device_storage not in ("EMMC", "UFS"):
+            device_storage = None
         if storage is None:
-            storage = device_storage or ("EMMC" if "EMMC" in pkg.storage_names()
-                                         else pkg.storage_names()[0])
+            # Never guess the layout: flashing EMMC offsets to a UFS device
+            # (or vice versa) can brick it. Require a confirmed detection.
+            if device_storage is None:
+                self.error("Could not detect device storage type (EMMC/UFS). "
+                           "Power-cycle the phone back into BROM and retry, or pass "
+                           "--storage EMMC|UFS explicitly if you are certain.")
+                return False
+            storage = device_storage
         if storage not in pkg.storage_names():
             self.error(f"Package has no {storage} layout; it has {pkg.storage_names()}.")
             return False

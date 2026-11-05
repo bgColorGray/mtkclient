@@ -1091,14 +1091,11 @@ class DAXML(metaclass=LogBase):
                     pg.update(len(chunk))
         if display:
             pg.done()
+        # Final completion ack for this file. The DA then issues its next
+        # request (another file, a filesys op, or CMD:END); the fwflash loop
+        # reads it. Each sub-operation never consumes the next command.
         self.ack()
-        cmd, res = self.get_command_result()
-        self.ack()
-        if cmd == "CMD:END" and res == "OK":
-            cmd, res = self.get_command_result()
-            return cmd == "CMD:START"
-        self.error(f"Transfer of {path} ended with: {res}")
-        return False
+        return True
 
     def serve_upload_file(self, result: UpFile) -> bool:
         """Receive a device backup into result.target_file for CMD:UPLOAD-FILE."""
@@ -1110,11 +1107,8 @@ class DAXML(metaclass=LogBase):
         ok = self.download_raw(result, filename=target, display=True)
         if ok is False:
             return False
-        cmd, res = self.get_command_result()
-        self.ack()
-        if cmd == "CMD:END" and res == "OK":
-            cmd, res = self.get_command_result()
-            return cmd == "CMD:START"
+        # download_raw consumes its own transfer; the fwflash loop reads the
+        # DA's next request. Don't consume CMD:END/START here.
         return True
 
     def serve_filesys(self, result: FileSysOp) -> bool:
