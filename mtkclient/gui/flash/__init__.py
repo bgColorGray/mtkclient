@@ -2,4 +2,4 @@
 
 # Version of the flashing app, independent of mtkclient's own version.
 # Shown in the window title and baked into the macOS bundle.
-__version__ = "1.0.2"
+__version__ = "1.0.3"

@@ -151,7 +151,8 @@ class FlashWorker(QObject):
         config.reconnect = True
         config.uartloglevel = 2
         config.logchannel = "UART"
-        config.hwparam_path = user_data_dir()
+        data_dir = user_data_dir()
+        config.hwparam_path = data_dir
         # The bundled DA loaders rarely cover the package's SoC; the package
         # ships the matching one.
         if package.da_loader and os.path.isfile(package.da_loader):
@@ -161,7 +162,10 @@ class FlashWorker(QObject):
         handler = DaHandler(mtk, logging.INFO)
         handler.close = lambda *a, **k: None   # never sys.exit from the GUI
 
-        mtk = handler.connect(mtk)
+        # connect() turns a missing directory into "." and hands it to the
+        # preloader, which overwrites hwparam_path with it — so setting the
+        # config alone is not enough; the directory has to be passed here.
+        mtk = handler.connect(mtk, directory=data_dir)
         if mtk is None:
             return False, True, "No phone detected"
         mtk = handler.configure_da(mtk)
