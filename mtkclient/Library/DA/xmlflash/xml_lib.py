@@ -18,6 +18,9 @@ from mtkclient.Library.DA.xmlflash.xml_param import DataType, FtSystemOSE, LogLe
 from mtkclient.Library.gui_utils import logsetup, LogBase, progress
 from mtkclient.Library.error import ErrorHandler
 from mtkclient.Library.partition import Partition
+from mtkclient.Library.DA.flashpackage import (FLASH_MODES, MODE_DOWNLOAD_ONLY,
+                                               MODE_FIRMWARE_UPGRADE,
+                                               MODE_FORMAT_ALL)
 from mtkclient.config.payloads import PathConfig
 from mtkclient.Library.thread_handling import writedata
 from mtkclient.Library.DA.xmlflash.xml_cmd import XMLCmd, BootModes
@@ -1226,20 +1229,50 @@ class DAXML(metaclass=LogBase):
         """Whether the DA accepted the last command (kept for da_fwflash)."""
         return getattr(self, "cmd_accepted", False)
 
-    def fwflash(self, package, storage: str, backup_folder: str, display: bool = True) -> bool:
-        """Firmware Upgrade: send CMD:FLASH-UPDATE and serve the DA's requests.
+    def fwflash(self, package, storage: str, backup_folder: str, display: bool = True,
+                mode: str = MODE_FIRMWARE_UPGRADE) -> bool:
+        """Flash a package using one of the three SP Flash Tool download scenes.
 
-        The DA drives the whole sequence (backup of protected partitions,
-        format, download, restore); this host side only answers its file and
-        filesystem requests until it reports CMD:END.
+        download-only     CMD:WRITE-PARTITIONS — writes just the listed
+                          partitions, leaving everything else untouched.
+        firmware-upgrade  CMD:FLASH-UPDATE — the DA backs up the protected
+                          partitions, writes, then restores them.
+        format-all        CMD:ERASE-FLASH over the whole flash, then
+                          CMD:FLASH-ALL — nothing is preserved.
+
+        In every mode the DA drives the sequence and this host side only
+        answers its file, filesystem and progress requests.
         """
         self.cmd_accepted = False
+        if mode not in FLASH_MODES:
+            self.error(f"Unknown flash mode {mode!r}; expected one of {FLASH_MODES}.")
+            return False
         dl = package.download_list(storage)
         if not dl:
             self.error(f"No downloadable partitions with images for storage {storage}.")
             return False
-        os.makedirs(backup_folder, exist_ok=True)
         flash_list = [(part.name, part.filename) for part in dl]
+
+        if mode == MODE_DOWNLOAD_ONLY:
+            self.info(f"Starting Download Only: {len(flash_list)} partitions, "
+                      f"storage {storage}")
+            xmldata = self.cmd.cmd_write_partitions(scatter_file=package.scatter_path,
+                                                    flash_list=flash_list)
+            return self.run_host_command(xmldata, display=display, label="Download")
+
+        if mode == MODE_FORMAT_ALL:
+            self.info("Formatting the whole flash before download; nothing is kept.")
+            if not self.run_host_command(self.cmd.cmd_erase_flash_all(),
+                                         display=display, label="Format All"):
+                return False
+            self.info(f"Starting Download after format: {len(flash_list)} partitions, "
+                      f"storage {storage}")
+            xmldata = self.cmd.cmd_flash_all(scatter_file=package.scatter_path,
+                                             flash_list=flash_list)
+            return self.run_host_command(xmldata, display=display,
+                                         label="Format All + Download")
+
+        os.makedirs(backup_folder, exist_ok=True)
         self.info(f"Starting Firmware Upgrade: {len(flash_list)} partitions, "
                   f"storage {storage}, backup dir {backup_folder}")
         xmldata = self.cmd.cmd_flash_update(scatter_file=package.scatter_path,

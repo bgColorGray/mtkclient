@@ -1261,7 +1261,7 @@ class DaHandler(metaclass=LogBase):
             self.info(f"Successfully wrote data to {hex(addr)}, length {hex(len(data))}")
 
     def da_fwflash(self, flash_xml: str, storage: str = None, backup: str = None,
-                   assume_yes: bool = False) -> str:
+                   assume_yes: bool = False, mode: str = None) -> str:
         """SP Flash Tool V6 "Firmware Upgrade": flash a download package.
 
         Parses flash.xml + scatter, picks the storage layout matching the
@@ -1273,9 +1273,11 @@ class DaHandler(metaclass=LogBase):
         may help), FW_FAILED (failed after the DA started the upgrade) or
         FW_FATAL (bad package or arguments; retrying won't help).
         """
-        from mtkclient.Library.DA.flashpackage import parse_flash_xml
+        from mtkclient.Library.DA.flashpackage import (MODE_FIRMWARE_UPGRADE,
+                                                       parse_flash_xml)
         from mtkclient.Library.DA.xmlflash.xml_lib import DAXML
 
+        mode = mode or MODE_FIRMWARE_UPGRADE
         da = self.mtk.daloader.da
         if not isinstance(da, DAXML):
             self.error("Firmware Upgrade needs a V6 (XML) DA; this device isn't in XML DA mode.")
@@ -1319,6 +1321,7 @@ class DaHandler(metaclass=LogBase):
 
         dl = pkg.download_list(storage)
         self.info(f"Project: {pkg.project}  build: {pkg.build_version}")
+        self.info(f"Mode: {mode}")
         self.info(f"Storage: {storage}  partitions to flash: {len(dl)}")
         for part in dl:
             self.info(f"  {part.name:18} <- {os.path.basename(part.filename)}")
@@ -1334,7 +1337,7 @@ class DaHandler(metaclass=LogBase):
             backup = os.path.normpath(backup)
         self.info(f"Backup folder for DA-side partition backups: {backup}")
 
-        if da.fwflash(pkg, storage, backup, display=True):
+        if da.fwflash(pkg, storage, backup, display=True, mode=mode):
             return FW_DONE
         return FW_FAILED if getattr(da, "fw_accepted", False) else FW_RETRY
 
@@ -1428,7 +1431,8 @@ class DaHandler(metaclass=LogBase):
             self.da_wl(directory=directory, parttype=parttype)
         elif cmd == "fwflash":
             args.fwflash_state = self.da_fwflash(flash_xml=args.flash_xml, storage=args.storage,
-                                                 backup=args.backup, assume_yes=args.yes)
+                                                 backup=args.backup, assume_yes=args.yes,
+                                                 mode=getattr(args, "scene", None))
         elif cmd == "wo":
             start = getint(args.offset)
             length = getint(args.length)

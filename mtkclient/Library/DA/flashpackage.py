@@ -19,6 +19,13 @@ PROTECTED_OPERATIONS = ("PROTECTED", "RESERVED", "INVISIBLE", "BINREGION")
 # Marker used by scatter files for "no image for this partition".
 NO_FILE = "NONE"
 
+# The three download scenes SP Flash Tool offers, and the DA command each one
+# sends. Format All additionally erases the whole flash first.
+MODE_DOWNLOAD_ONLY = "download-only"
+MODE_FIRMWARE_UPGRADE = "firmware-upgrade"
+MODE_FORMAT_ALL = "format-all"
+FLASH_MODES = (MODE_DOWNLOAD_ONLY, MODE_FIRMWARE_UPGRADE, MODE_FORMAT_ALL)
+
 
 def _parse_int(value: str) -> int:
     """Parse a scatter numeric field, which may be hex (0x...) or decimal."""

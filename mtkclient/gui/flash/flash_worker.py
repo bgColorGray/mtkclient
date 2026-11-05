@@ -13,7 +13,8 @@ import time
 
 from PySide6.QtCore import QObject, QThread, Signal
 
-from mtkclient.Library.DA.flashpackage import parse_flash_xml
+from mtkclient.Library.DA.flashpackage import (MODE_FIRMWARE_UPGRADE,
+                                               parse_flash_xml)
 from mtkclient.Library.DA.mtk_da_handler import DaHandler
 from mtkclient.Library.DA.xmlflash.xml_lib import DAXML
 from mtkclient.Library.Partitions.gpt import GptSettings
@@ -42,12 +43,14 @@ class FlashWorker(QObject):
     finished = Signal(bool, str)        # success, message
 
     def __init__(self, flash_xml: str, selected: list, storage: str = None,
-                 backup: str = None, parent=None):
+                 backup: str = None, mode: str = MODE_FIRMWARE_UPGRADE,
+                 parent=None):
         super().__init__(parent)
         self.flash_xml = flash_xml
         self.selected = list(selected)
         self.storage = storage
         self.backup = backup
+        self.mode = mode
         self._stop = False
         self._total = 0
         self._done_before_current = 0
@@ -183,9 +186,9 @@ class FlashWorker(QObject):
         self.phase.emit(PHASE_FLASHING, f"Flashing {len(parts)} partitions")
 
         trimmed = _SubsetPackage(package, storage, parts)
-        ok = da.fwflash(trimmed, storage, backup, display=True)
+        ok = da.fwflash(trimmed, storage, backup, display=True, mode=self.mode)
         if ok:
-            return True, False, "Firmware upgrade completed"
+            return True, False, "Flashing completed"
         if da.fw_accepted:
             return False, False, "Flashing failed after it had started"
         return False, True, "The device did not accept the flash command"

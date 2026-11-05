@@ -483,15 +483,42 @@ class XMLCmd(metaclass=LogBase):
         cmd = self.create_cmd("READ-FLASH", content)
         return cmd
 
-    def cmd_flash_all(self):
+    @staticmethod
+    def _flash_list_xml(flash_list) -> str:
+        """Render <pt name="partition">host/path</pt> entries."""
+        return "".join(f"<pt name=\"{name}\">{path}</pt>"
+                       for name, path in flash_list)
+
+    def cmd_flash_all(self, scatter_file: str, flash_list,
+                      path_separator: str = "/"):
+        """Build CMD:FLASH-ALL, used by the Format All + Download scene.
+
+        Same shape as FLASH-UPDATE but without a backup folder: nothing is
+        preserved, because the flash was erased first.
+        """
         content = {
             "arg": [
-                "<path_separator>/</path_separator>",
-                "<source_file>D:/scatter.xml</source_file>"
+                f"<path_separator>{path_separator}</path_separator>",
+                f"<source_file>{scatter_file}</source_file>",
+                f"<flash_list>{self._flash_list_xml(flash_list)}</flash_list>"
             ]
         }
-        cmd = self.create_cmd("FLASH-ALL", content)
+        cmd = self.create_cmd("FLASH-ALL", content, version="2.0")
         return cmd
+
+    def cmd_erase_flash_all(self):
+        """Build the whole-flash erase that precedes Format All + Download.
+
+        Matches the V6 defaults: partition ALL, offset 0x0, length MAX.
+        """
+        content = {
+            "arg": [
+                "<partition>ALL</partition>",
+                "<offset>0x0</offset>",
+                "<length>MAX</length>"
+            ]
+        }
+        return self.create_cmd("ERASE-FLASH", content)
 
     def cmd_erase_partition(self, partition: str = "system"):
         content = {
@@ -521,28 +548,27 @@ class XMLCmd(metaclass=LogBase):
         reads the scatter, backs up protected partitions into backup_folder,
         then requests each listed image back from the host by its path.
         """
-        pts = ""
-        for partition_name, file_path in flash_list:
-            pts += f"<pt name=\"{partition_name}\">{file_path}</pt>"
         content = {
             "arg": [
                 f"<path_separator>{path_separator}</path_separator>",
                 f"<source_file>{scatter_file}</source_file>",
                 f"<backup_folder>{backup_folder}</backup_folder>",
-                f"<flash_list>{pts}</flash_list>"
+                f"<flash_list>{self._flash_list_xml(flash_list)}</flash_list>"
             ]
         }
         cmd = self.create_cmd("FLASH-UPDATE", content, version="2.0")
         return cmd
 
-    def cmd_write_partitions(self, partitions):
-        flashlist = ""
-        for partition in partitions:
-            flashlist += f"    <pt name={partition}>{partition}.img</pt>\n"
+    def cmd_write_partitions(self, scatter_file: str, flash_list):
+        """Build CMD:WRITE-PARTITIONS, used by the Download Only scene.
+
+        Writes just the listed partitions; the DA touches nothing else, so
+        userdata and the protected partitions are left alone.
+        """
         content = {
             "arg": [
-                "<source_file>D:/scatter.xml</source_file>",
-                f"<flash_list>{flashlist}</flash_list>"
+                f"<source_file>{scatter_file}</source_file>",
+                f"<flash_list>{self._flash_list_xml(flash_list)}</flash_list>"
             ]
         }
         cmd = self.create_cmd("WRITE-PARTITIONS", content)

@@ -15,7 +15,10 @@ from PySide6.QtWidgets import (QCheckBox, QComboBox, QFileDialog, QFrame,
                                QProgressBar, QPushButton, QTableWidget,
                                QTableWidgetItem, QVBoxLayout, QWidget)
 
-from mtkclient.Library.DA.flashpackage import parse_flash_xml
+from mtkclient.Library.DA.flashpackage import (MODE_DOWNLOAD_ONLY,
+                                               MODE_FIRMWARE_UPGRADE,
+                                               MODE_FORMAT_ALL,
+                                               parse_flash_xml)
 from mtkclient.gui.flash import flash_style
 from mtkclient.gui.flash.flash_worker import (FlashWorker, PHASE_FLASHING,
                                               start_worker)
@@ -62,8 +65,11 @@ class FlashWindow(QMainWindow):
         self.current_total = 0
         self.setWindowTitle(self.tr("MTK Firmware Flasher"))
         self.resize(900, 760)
+        self._palette = flash_style.DARK if dark else flash_style.LIGHT
         self.setStyleSheet(flash_style.stylesheet(dark))
         self._build()
+        # currentIndexChanged doesn't fire for the index the combo starts on.
+        self._mode_changed()
         self._set_phase("waiting", self.tr("No package loaded"))
         self._set_running(False)
 
@@ -80,7 +86,8 @@ class FlashWindow(QMainWindow):
                               self._build_package_row(),
                               self._build_package_info()))
         outer.addWidget(self._build_partitions_card(), 1)
-        outer.addWidget(_card(_section(self.tr("Options")), self._build_options()))
+        outer.addWidget(_card(_section(self.tr("Mode")), self._build_mode_row(),
+                              self._build_options()))
         outer.addWidget(_card(self._build_actions(), self._build_progress()))
         outer.addWidget(self._build_log())
         self.setCentralWidget(root)
@@ -149,6 +156,45 @@ class FlashWindow(QMainWindow):
         header.setSectionResizeMode(COL_SIZE, QHeaderView.ResizeToContents)
         self.table.itemChanged.connect(lambda _item: self._update_summary())
         return _card(head, self.table)
+
+    def _build_mode_row(self) -> QHBoxLayout:
+        row = QHBoxLayout()
+        self.mode_box = QComboBox()
+        self.mode_box.addItem(self.tr("Firmware Upgrade"), MODE_FIRMWARE_UPGRADE)
+        self.mode_box.addItem(self.tr("Download Only"), MODE_DOWNLOAD_ONLY)
+        self.mode_box.addItem(self.tr("Format All + Download"), MODE_FORMAT_ALL)
+        self.mode_box.currentIndexChanged.connect(self._mode_changed)
+        self.mode_hint = QLabel()
+        self.mode_hint.setObjectName("Hint")
+        self.mode_hint.setWordWrap(True)
+        row.addWidget(QLabel(self.tr("Mode")))
+        row.addWidget(self.mode_box)
+        row.addSpacing(14)
+        row.addWidget(self.mode_hint, 1)
+        return row
+
+    def _mode_hint_text(self, mode: str) -> str:
+        """One line explaining what the chosen mode does to the phone."""
+        if mode == MODE_FIRMWARE_UPGRADE:
+            return self.tr("The download agent backs up the protected "
+                           "partitions (nvram, protect) and restores them "
+                           "afterwards.")
+        if mode == MODE_DOWNLOAD_ONLY:
+            return self.tr("Writes only the ticked partitions. Everything "
+                           "else, including user data, is left untouched.")
+        if mode == MODE_FORMAT_ALL:
+            return self.tr("Erases the entire flash first. Nothing is kept — "
+                           "user data, IMEI and calibration data are all lost.")
+        return ""
+
+    def _mode_changed(self) -> None:
+        mode = self.mode_box.currentData()
+        self.mode_hint.setText(self._mode_hint_text(mode))
+        # Use the theme's own danger colour; the pill red is tuned for a
+        # coloured background and reads too dark on the dark window.
+        warn = mode == MODE_FORMAT_ALL
+        self.mode_hint.setStyleSheet(
+            f"color: {self._palette['danger']}; font-weight: 600;" if warn else "")
 
     def _build_options(self) -> QHBoxLayout:
         row = QHBoxLayout()
@@ -315,10 +361,16 @@ class FlashWindow(QMainWindow):
         names = self.selected_partitions()
         if not names:
             return
+        mode = self.mode_box.currentData()
+        question = self.tr("Mode: {mode}\n{detail}\n\n"
+                           "{count} partitions will be written. Continue?").format(
+            mode=self.mode_box.currentText(),
+            detail=self._mode_hint_text(mode),
+            count=len(names))
+        if mode == MODE_FORMAT_ALL:
+            question = self.tr("THE WHOLE FLASH WILL BE ERASED FIRST.\n\n") + question
         answer = QMessageBox.warning(
-            self, self.tr("Confirm flashing"),
-            self.tr("This erases and rewrites {count} partitions on the phone.\n\n"
-                    "Continue?").format(count=len(names)),
+            self, self.tr("Confirm flashing"), question,
             QMessageBox.Yes | QMessageBox.Cancel, QMessageBox.Cancel)
         if answer != QMessageBox.Yes:
             return
@@ -327,7 +379,8 @@ class FlashWindow(QMainWindow):
         self.worker = FlashWorker(flash_xml=self.path_edit.text(),
                                   selected=names,
                                   storage=self.storage_box.currentData(),
-                                  backup=self.backup_edit.text() or None)
+                                  backup=self.backup_edit.text() or None,
+                                  mode=mode)
         self.worker.log.connect(self.append_log)
         self.worker.phase.connect(self._set_phase)
         self.worker.device.connect(self.device_label.setText)
@@ -354,6 +407,7 @@ class FlashWindow(QMainWindow):
         self.storage_box.setEnabled(not running)
         self.backup_edit.setEnabled(not running)
         self.select_all.setEnabled(not running)
+        self.mode_box.setEnabled(not running)
 
     def _set_phase(self, phase: str, detail: str) -> None:
         bg, fg = flash_style.PILL_COLORS.get(phase, ("#8e8e93", "#ffffff"))
