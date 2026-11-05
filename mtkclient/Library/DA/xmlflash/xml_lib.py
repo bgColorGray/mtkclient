@@ -1152,6 +1152,9 @@ class DAXML(metaclass=LogBase):
         format, download, restore); this host side only answers its file and
         filesystem requests until it reports CMD:END.
         """
+        # Set once the DA accepts FLASH-UPDATE: from then on the device may
+        # have been modified, so callers must not silently retry.
+        self.fw_accepted = False
         dl = package.download_list(storage)
         if not dl:
             self.error(f"No downloadable partitions with images for storage {storage}.")
@@ -1169,6 +1172,7 @@ class DAXML(metaclass=LogBase):
         if self.get_response() != "OK":
             self.error("Device did not accept FLASH-UPDATE command.")
             return False
+        self.fw_accepted = True
         while True:
             cmd, result = self.get_command_result()
             if cmd == "CMD:DOWNLOAD-FILE" and isinstance(result, DwnFile):

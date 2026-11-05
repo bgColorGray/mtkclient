@@ -3,11 +3,17 @@
 # Licensed under GPLv3 License
 
 import argparse
+import gc
 import logging
 import os
 import sys
+import time
 
 from mtkclient.Library.mtk_main import Main, metamodes
+
+# Pause between fwflash connection attempts, so a phone that was just
+# unplugged has time to drop off the bus before we start waiting again.
+FWFLASH_RETRY_DELAY = 2
 
 INFO = "MTK Flash/Exploit Client V2.1.4 (c) B.Kerler 2018-2026"
 
@@ -127,6 +133,35 @@ def add_common_flash_cmd(subparsers, name, title, parent_parser):
         help=title,
         parents=[parent_parser]
     )
+
+
+def run_fwflash(args, parser):
+    """Run fwflash like SP Flash Tool: keep waiting for the phone until it flashes.
+
+    Anything that fails before the DA accepts the upgrade (no device yet,
+    cable pulled during the handshake, DA not up, storage not detected)
+    sends us back to waiting for the next connection. Once the DA has started
+    the upgrade, or the package itself is bad, we stop instead of retrying.
+    """
+    attempt = 0
+    while True:
+        attempt += 1
+        args.fwflash_state = None
+        try:
+            Main(args).run(parser)
+        except SystemExit:
+            pass
+        state = args.fwflash_state
+        if state == "done":
+            print("Firmware upgrade completed.")
+            return 0
+        if state in ("failed", "fatal"):
+            return 1
+        print(f"\nDevice not ready or connection lost (attempt {attempt}). "
+              "Power the phone off, then hold the volume keys and plug it in "
+              "again. Waiting for the next connection... (Ctrl-C to stop)\n")
+        gc.collect()
+        time.sleep(FWFLASH_RETRY_DELAY)
 
 
 def main():
@@ -353,6 +388,9 @@ def main():
     if args.debugmode:
         if not os.path.exists("logs"):
             os.makedirs("logs")
+
+    if args.cmd == "fwflash":
+        return run_fwflash(args, parser)
 
     mtk = Main(args)
     return mtk.run(parser)
