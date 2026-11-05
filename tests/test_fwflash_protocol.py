@@ -56,6 +56,49 @@ def test_cmd_flash_update_builds_v2_command_with_flash_list():
     assert '<pt name="lk_a">/pkg/lk.img</pt>' in xml
 
 
+def test_cmd_write_partitions_is_v1_without_path_separator():
+    # Download Only: CMD:WRITE-PARTITIONS, version 1.0, no path_separator
+    # and no backup_folder (WritePartitionsCmdXML::fillArgNode).
+    xml = XMLCmd(_Mtk()).cmd_write_partitions(
+        scatter_file="/pkg/scatter.xml",
+        flash_list=[("boot_a", "/pkg/boot.img")])
+    assert "<command>CMD:WRITE-PARTITIONS</command>" in xml
+    assert "<version>1.0</version>" in xml
+    assert "<source_file>/pkg/scatter.xml</source_file>" in xml
+    assert '<pt name="boot_a">/pkg/boot.img</pt>' in xml
+    assert "path_separator" not in xml
+    assert "backup_folder" not in xml
+
+
+def test_cmd_flash_all_is_v2_without_backup_folder():
+    # Format All + Download: like FLASH-UPDATE but nothing is preserved.
+    xml = XMLCmd(_Mtk()).cmd_flash_all(
+        scatter_file="/pkg/scatter.xml",
+        flash_list=[("boot_a", "/pkg/boot.img")])
+    assert "<command>CMD:FLASH-ALL</command>" in xml
+    assert "<version>2.0</version>" in xml
+    assert "<path_separator>/</path_separator>" in xml
+    assert "backup_folder" not in xml
+
+
+def test_cmd_erase_flash_all_matches_v6_defaults():
+    # EraseFlashCmdXML defaults: partition ALL, offset 0x0, length MAX.
+    xml = XMLCmd(_Mtk()).cmd_erase_flash_all()
+    assert "<command>CMD:ERASE-FLASH</command>" in xml
+    assert "<partition>ALL</partition>" in xml
+    assert "<offset>0x0</offset>" in xml
+    assert "<length>MAX</length>" in xml
+
+
+def test_partition_names_are_quoted_in_every_mode():
+    cmd = XMLCmd(_Mtk())
+    flash_list = [("vbmeta_a", "/pkg/vbmeta.img")]
+    for xml in (cmd.cmd_write_partitions("/s.xml", flash_list),
+                cmd.cmd_flash_all("/s.xml", flash_list),
+                cmd.cmd_flash_update("/s.xml", "/b", flash_list)):
+        assert '<pt name="vbmeta_a">' in xml
+
+
 def test_serve_filesys_file_size_existing(tmp_path):
     sent = []
     obj = _bare_daxml(lambda data, **k: sent.append(data) or True)

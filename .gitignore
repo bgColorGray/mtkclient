@@ -17,3 +17,7 @@ dist
 
 # Python virtual environment
 mtk_venv/
+
+# Runtime artifacts
+hwparam.json
+logs/

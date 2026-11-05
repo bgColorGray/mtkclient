@@ -243,6 +243,15 @@ def main():
     cmd_fw = subparsers.add_parser("fwflash", help=CMDS_HELP["fwflash"], parents=[base])
     cmd_fw.add_argument("flash_xml",
                         help="Path to the package's download_agent/flash.xml")
+    # Named --scene because the base parser already defines --mode (crash mode),
+    # and "download scene" is what SP Flash Tool calls this choice.
+    cmd_fw.add_argument("--scene",
+                        choices=["download-only", "firmware-upgrade", "format-all"],
+                        default="firmware-upgrade",
+                        help="Download scene: download-only writes just the listed "
+                             "partitions; firmware-upgrade (default) lets the DA back "
+                             "up and restore protected partitions; format-all erases "
+                             "the whole flash first")
     cmd_fw.add_argument("--storage", choices=["EMMC", "UFS"], default=None,
                         help="Scatter storage layout (default: auto-detect from device)")
     cmd_fw.add_argument("--backup", default=None,

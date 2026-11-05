@@ -18,6 +18,9 @@ from mtkclient.Library.DA.xmlflash.xml_param import DataType, FtSystemOSE, LogLe
 from mtkclient.Library.gui_utils import logsetup, LogBase, progress
 from mtkclient.Library.error import ErrorHandler
 from mtkclient.Library.partition import Partition
+from mtkclient.Library.DA.flashpackage import (FLASH_MODES, MODE_DOWNLOAD_ONLY,
+                                               MODE_FIRMWARE_UPGRADE,
+                                               MODE_FORMAT_ALL)
 from mtkclient.config.payloads import PathConfig
 from mtkclient.Library.thread_handling import writedata
 from mtkclient.Library.DA.xmlflash.xml_cmd import XMLCmd, BootModes
@@ -1069,6 +1072,11 @@ class DAXML(metaclass=LogBase):
         self.debug(f"DOWNLOAD-FILE {os.path.basename(path)} size={hex(size)} "
                    f"packet={hex(packet_length)} checksum={result.checksum} "
                    f"info={result.info}")
+        # Optional hook so a GUI can show which image is being sent and track
+        # overall progress; the byte-level progress signal carries no filename.
+        on_file = getattr(self, "fw_on_file", None)
+        if on_file is not None:
+            on_file(os.path.basename(path), size)
         pg = progress(total=size, prefix=f"Flashing {os.path.basename(path)}:",
                       guiprogress=self.mtk.config.guiprogress)
         self.ack_value(size)
@@ -1169,34 +1177,27 @@ class DAXML(metaclass=LogBase):
             return False
         return True
 
-    def fwflash(self, package, storage: str, backup_folder: str, display: bool = True) -> bool:
-        """Firmware Upgrade: send CMD:FLASH-UPDATE and serve the DA's requests.
+    def run_host_command(self, xmldata: str, display: bool = True,
+                         label: str = "command") -> bool:
+        """Send a DA command and serve the DA's host-side requests until CMD:END.
 
-        The DA drives the whole sequence (backup of protected partitions,
-        format, download, restore); this host side only answers its file and
-        filesystem requests until it reports CMD:END.
+        This is the host half of any V6 DA command: the DA drives the whole
+        sequence and asks the host for files, filesystem operations and
+        progress reporting along the way. Used by fwflash and by the
+        libflash-compatible bridge, which forwards the UI's own XML.
+
+        Sets self.cmd_accepted once the DA takes the command; after that point
+        the device may have been modified, so callers must not silently retry.
         """
-        # Set once the DA accepts FLASH-UPDATE: from then on the device may
-        # have been modified, so callers must not silently retry.
-        self.fw_accepted = False
-        dl = package.download_list(storage)
-        if not dl:
-            self.error(f"No downloadable partitions with images for storage {storage}.")
-            return False
-        os.makedirs(backup_folder, exist_ok=True)
-        flash_list = [(part.name, part.filename) for part in dl]
-        self.info(f"Starting Firmware Upgrade: {len(flash_list)} partitions, "
-                  f"storage {storage}, backup dir {backup_folder}")
-        xmldata = self.cmd.cmd_flash_update(scatter_file=package.scatter_path,
-                                            backup_folder=backup_folder,
-                                            flash_list=flash_list)
+        self.cmd_accepted = False
         if not self.xsend(data=xmldata):
-            self.error("Failed to send FLASH-UPDATE command.")
+            self.error(f"Failed to send {label} to the DA.")
             return False
-        if self.get_response() != "OK":
-            self.error("Device did not accept FLASH-UPDATE command.")
+        resp = self.get_response()
+        if resp != "OK":
+            self.error(f"Device did not accept {label}: {resp!r}")
             return False
-        self.fw_accepted = True
+        self.cmd_accepted = True
         while True:
             cmd, result = self.get_command_result()
             if cmd == "CMD:DOWNLOAD-FILE" and isinstance(result, DwnFile):
@@ -1214,14 +1215,71 @@ class DAXML(metaclass=LogBase):
                 continue
             elif cmd == "CMD:END":
                 if result == "OK":
-                    self.info("Firmware Upgrade finished.")
+                    self.info(f"{label} finished.")
                     self.ack()
                     return True
-                self.error(f"Firmware Upgrade failed: {result}")
+                self.error(f"{label} failed: {result}")
                 return False
             else:
-                self.error(f"Unexpected DA command during upgrade: {cmd} / {result}")
+                self.error(f"Unexpected DA command during {label}: {cmd} / {result}")
                 return False
+
+    @property
+    def fw_accepted(self) -> bool:
+        """Whether the DA accepted the last command (kept for da_fwflash)."""
+        return getattr(self, "cmd_accepted", False)
+
+    def fwflash(self, package, storage: str, backup_folder: str, display: bool = True,
+                mode: str = MODE_FIRMWARE_UPGRADE) -> bool:
+        """Flash a package using one of the three SP Flash Tool download scenes.
+
+        download-only     CMD:WRITE-PARTITIONS — writes just the listed
+                          partitions, leaving everything else untouched.
+        firmware-upgrade  CMD:FLASH-UPDATE — the DA backs up the protected
+                          partitions, writes, then restores them.
+        format-all        CMD:ERASE-FLASH over the whole flash, then
+                          CMD:FLASH-ALL — nothing is preserved.
+
+        In every mode the DA drives the sequence and this host side only
+        answers its file, filesystem and progress requests.
+        """
+        self.cmd_accepted = False
+        if mode not in FLASH_MODES:
+            self.error(f"Unknown flash mode {mode!r}; expected one of {FLASH_MODES}.")
+            return False
+        dl = package.download_list(storage)
+        if not dl:
+            self.error(f"No downloadable partitions with images for storage {storage}.")
+            return False
+        flash_list = [(part.name, part.filename) for part in dl]
+
+        if mode == MODE_DOWNLOAD_ONLY:
+            self.info(f"Starting Download Only: {len(flash_list)} partitions, "
+                      f"storage {storage}")
+            xmldata = self.cmd.cmd_write_partitions(scatter_file=package.scatter_path,
+                                                    flash_list=flash_list)
+            return self.run_host_command(xmldata, display=display, label="Download")
+
+        if mode == MODE_FORMAT_ALL:
+            self.info("Formatting the whole flash before download; nothing is kept.")
+            if not self.run_host_command(self.cmd.cmd_erase_flash_all(),
+                                         display=display, label="Format All"):
+                return False
+            self.info(f"Starting Download after format: {len(flash_list)} partitions, "
+                      f"storage {storage}")
+            xmldata = self.cmd.cmd_flash_all(scatter_file=package.scatter_path,
+                                             flash_list=flash_list)
+            return self.run_host_command(xmldata, display=display,
+                                         label="Format All + Download")
+
+        os.makedirs(backup_folder, exist_ok=True)
+        self.info(f"Starting Firmware Upgrade: {len(flash_list)} partitions, "
+                  f"storage {storage}, backup dir {backup_folder}")
+        xmldata = self.cmd.cmd_flash_update(scatter_file=package.scatter_path,
+                                            backup_folder=backup_folder,
+                                            flash_list=flash_list)
+        return self.run_host_command(xmldata, display=display,
+                                     label="Firmware Upgrade")
 
     def shutdown(self, async_mode: int = 0, dl_bit: int = 0, bootmode: ShutDownModes = ShutDownModes.NORMAL):
         if bootmode == ShutDownModes.FASTBOOT:
