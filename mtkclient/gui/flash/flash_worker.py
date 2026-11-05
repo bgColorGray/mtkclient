@@ -9,6 +9,7 @@ window as Qt signals only.
 """
 import logging
 import os
+import sys
 import time
 
 from PySide6.QtCore import QObject, QThread, Signal
@@ -29,6 +30,25 @@ PHASE_CONNECTED = "connected"
 PHASE_FLASHING = "flashing"
 PHASE_DONE = "done"
 PHASE_FAILED = "failed"
+
+
+def user_data_dir() -> str:
+    """Writable per-user directory for mtkclient's runtime files.
+
+    An app launched from Finder starts with "/" as its working directory,
+    and mtkclient defaults to writing hwparam.json and .state there, which
+    fails on the read-only system volume.
+    """
+    if sys.platform == "darwin":
+        base = os.path.expanduser("~/Library/Application Support")
+    elif os.name == "nt":
+        base = os.environ.get("APPDATA") or os.path.expanduser("~")
+    else:
+        base = (os.environ.get("XDG_DATA_HOME")
+                or os.path.expanduser("~/.local/share"))
+    path = os.path.join(base, "mtkclient")
+    os.makedirs(path, exist_ok=True)
+    return path
 
 
 class FlashWorker(QObject):
@@ -131,6 +151,7 @@ class FlashWorker(QObject):
         config.reconnect = True
         config.uartloglevel = 2
         config.logchannel = "UART"
+        config.hwparam_path = user_data_dir()
         # The bundled DA loaders rarely cover the package's SoC; the package
         # ships the matching one.
         if package.da_loader and os.path.isfile(package.da_loader):
