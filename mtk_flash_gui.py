@@ -12,8 +12,8 @@ import sys
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication
 
-from mtk_gui import load_translations
 from mtkclient.gui.flash.flash_window import FlashWindow
+from mtkclient.gui.translations import load_translations
 
 
 def is_dark(app: QApplication) -> bool:

@@ -8,7 +8,7 @@ Flash. Everything else mtkclient can do lives in the main GUI.
 """
 import os
 
-from PySide6.QtCore import Qt, QTime
+from PySide6.QtCore import QSettings, Qt, QTime
 from PySide6.QtWidgets import (QCheckBox, QComboBox, QFileDialog, QFrame,
                                QHBoxLayout, QHeaderView, QLabel, QLineEdit,
                                QMainWindow, QMessageBox, QPlainTextEdit,
@@ -67,11 +67,42 @@ class FlashWindow(QMainWindow):
         self.resize(900, 760)
         self._palette = flash_style.DARK if dark else flash_style.LIGHT
         self.setStyleSheet(flash_style.stylesheet(dark))
+        self.settings = QSettings("mtkclient", "FirmwareFlasher")
         self._build()
         # currentIndexChanged doesn't fire for the index the combo starts on.
         self._mode_changed()
         self._set_phase("waiting", self.tr("No package loaded"))
         self._set_running(False)
+        self._restore_session()
+
+    # ── remembered state ─────────────────────────────────────────────
+
+    def _restore_session(self) -> None:
+        """Reload the package and options from the previous run.
+
+        A package that has since been moved or deleted is dropped silently:
+        the window just opens empty, as it would on a first run.
+        """
+        mode = self.settings.value("mode", "")
+        index = self.mode_box.findData(mode)
+        if index >= 0:
+            self.mode_box.setCurrentIndex(index)
+        storage = self.settings.value("storage", None)
+        index = self.storage_box.findData(storage)
+        if index >= 0:
+            self.storage_box.setCurrentIndex(index)
+        backup = self.settings.value("backup", "")
+        if backup:
+            self.backup_edit.setText(backup)
+        path = self.settings.value("package", "")
+        if path and os.path.isfile(path):
+            self.load_package(path, remember=False)
+
+    def _remember_session(self) -> None:
+        self.settings.setValue("package", self.path_edit.text())
+        self.settings.setValue("mode", self.mode_box.currentData())
+        self.settings.setValue("storage", self.storage_box.currentData() or "")
+        self.settings.setValue("backup", self.backup_edit.text())
 
     # ── layout ───────────────────────────────────────────────────────
 
@@ -189,6 +220,8 @@ class FlashWindow(QMainWindow):
 
     def _mode_changed(self) -> None:
         mode = self.mode_box.currentData()
+        if self.package is not None:
+            self._remember_session()
         self.mode_hint.setText(self._mode_hint_text(mode))
         # Use the theme's own danger colour; the pill red is tuned for a
         # coloured background and reads too dark on the dark window.
@@ -202,6 +235,9 @@ class FlashWindow(QMainWindow):
         self.storage_box.addItem(self.tr("Auto-detect"), None)
         self.storage_box.addItem("EMMC", "EMMC")
         self.storage_box.addItem("UFS", "UFS")
+        # The layout decides each partition's address and size, so the table
+        # has to be rebuilt when it changes.
+        self.storage_box.currentIndexChanged.connect(self._storage_changed)
         self.backup_edit = QLineEdit()
         self.backup_edit.setPlaceholderText(
             self.tr("Default: mtk_fwbackup next to the package"))
@@ -276,7 +312,7 @@ class FlashWindow(QMainWindow):
         if path:
             self.load_package(path)
 
-    def load_package(self, path: str) -> None:
+    def load_package(self, path: str, remember: bool = True) -> None:
         try:
             package = parse_flash_xml(path)
         except (ValueError, FileNotFoundError) as err:
@@ -291,6 +327,8 @@ class FlashWindow(QMainWindow):
             f"{layouts}: {storages} · {package.build_time}")
         self._fill_table()
         self._set_phase("waiting", self.tr("Ready — connect the phone"))
+        if remember:
+            self._remember_session()
 
     def _layout_name(self) -> str:
         chosen = self.storage_box.currentData()
@@ -348,10 +386,17 @@ class FlashWindow(QMainWindow):
                 count=len(parts), size=human_size(total)))
         self.flash_btn.setEnabled(bool(parts) and self.worker is None)
 
+    def _storage_changed(self) -> None:
+        if self.package is None:
+            return
+        self._fill_table()
+        self._remember_session()
+
     def _choose_backup(self) -> None:
         path = QFileDialog.getExistingDirectory(self, self.tr("Select backup folder"))
         if path:
             self.backup_edit.setText(path)
+            self._remember_session()
 
     # ── flashing ─────────────────────────────────────────────────────
 
@@ -392,6 +437,7 @@ class FlashWindow(QMainWindow):
         self.hint.setText(self.tr("Power the phone off, hold both volume keys "
                                   "and plug in the USB cable."))
         self.thread = start_worker(self.worker)
+        self.thread.finished.connect(self._on_thread_done)
 
     def stop_flash(self) -> None:
         if self.worker is not None:
@@ -434,9 +480,17 @@ class FlashWindow(QMainWindow):
             self.tr("Overall {pct:.1f}% — {done} of {total}").format(
                 pct=pct, done=human_size(done), total=human_size(total)))
 
+    def _on_thread_done(self) -> None:
+        """Drop our references only once the thread has actually stopped.
+
+        Clearing them from the worker's finished signal would release the
+        QThread while it is still running, which makes Qt abort.
+        """
+        thread, self.thread, self.worker = self.thread, None, None
+        if thread is not None:
+            thread.deleteLater()
+
     def _on_finished(self, ok: bool, message: str) -> None:
-        self.worker = None
-        self.thread = None
         self._set_running(False)
         self.hint.setText(message)
         if ok:
@@ -467,4 +521,12 @@ class FlashWindow(QMainWindow):
                 event.ignore()
                 return
             self.worker.request_stop()
+        # Never leave a running QThread behind: Qt aborts if one is
+        # destroyed while still running.
+        thread = self.thread
+        if thread is not None and thread.isRunning():
+            thread.quit()
+            if not thread.wait(5000):
+                thread.terminate()
+                thread.wait()
         event.accept()

@@ -8,7 +8,7 @@ import logging
 import ctypes
 from unittest import mock
 from functools import partial
-from PySide6.QtCore import Qt, QVariantAnimation, Signal, QObject, QSize, QTranslator, QLocale, QLibraryInfo, \
+from PySide6.QtCore import Qt, QVariantAnimation, Signal, QObject, QSize, \
     Slot, QCoreApplication
 from PySide6.QtGui import QTextOption, QPixmap, QTransform, QIcon, QAction
 from PySide6.QtWidgets import QMainWindow, QApplication, QWidget, QCheckBox, QVBoxLayout, QHBoxLayout, QLineEdit, \
@@ -28,6 +28,9 @@ from mtkclient.gui.toolkit import asyncThread, trap_exc_during_debug, convert_si
 from mtkclient.config.payloads import PathConfig
 from mtkclient.gui.main_gui import Ui_MainWindow
 from mtkclient.gui.themes import DARK_THEME, LIGHT_THEME
+from mtkclient.gui.translations import (load_translations,  # noqa: F401
+                                        macos_preferred_languages,
+                                        translation_candidates)
 import os
 import subprocess
 import serial.tools.list_ports
@@ -212,49 +215,6 @@ def getDevInfo(thread, parameters):
         with lock:
             phone_info['cantConnect'] = True
         thread.sendUpdateSignal.emit(phone_info.copy())
-
-
-def macos_preferred_languages():
-    # Qt only sees LANG/LC_* when started from a terminal, so ask macOS for the UI languages
-    if sys.platform != "darwin":
-        return []
-    try:
-        out = subprocess.run(["defaults", "read", "-g", "AppleLanguages"],
-                             capture_output=True, text=True, timeout=2).stdout
-    except (OSError, subprocess.SubprocessError):
-        return []
-    return [item.strip().strip('",') for item in out.strip("()\n").split("\n") if item.strip()]
-
-
-def translation_candidates():
-    # MTK_LANG=zh_CN forces a language; otherwise try Qt's locale, then the macOS UI languages
-    names = [os.environ.get("MTK_LANG", "")] + QLocale.system().uiLanguages() + macos_preferred_languages()
-    candidates = []
-    for name in filter(None, names):
-        locale = QLocale(name)
-        if locale.language() == QLocale.Language.C:
-            continue
-        code = "nl_NL" if locale.name() == "en_NL" else locale.name()
-        if code not in candidates:
-            candidates.append(code)
-    return candidates
-
-
-def load_translations(application):
-    # Load application translations and the QT base translations for the current locale
-    translator = QTranslator(application)
-    directory = os.path.dirname(__file__)
-    candidates = translation_candidates()
-    for code in candidates:
-        if translator.load(f'mtkclient/gui/i18n/{code}', directory):
-            application.installTranslator(translator)
-            break
-
-    locale = QLocale(candidates[0]) if candidates else QLocale.system()
-    translations_path = QLibraryInfo.path(QLibraryInfo.TranslationsPath)
-    base_translator = QTranslator(application)
-    if base_translator.load(locale, "qtbase", "_", translations_path):
-        application.installTranslator(base_translator)
 
 
 class MainWindow(QMainWindow):

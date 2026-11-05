@@ -234,10 +234,16 @@ class _SubsetPackage:
 
 
 def start_worker(worker: FlashWorker) -> QThread:
-    """Move worker onto a new thread, start it, and return the thread."""
+    """Move worker onto a new thread, start it, and return the thread.
+
+    The caller must keep the returned thread referenced until its own
+    finished signal fires: dropping a running QThread makes Qt abort with
+    "Destroyed while thread is still running".
+    """
     thread = QThread()
     worker.moveToThread(thread)
     thread.started.connect(worker.run)
     worker.finished.connect(thread.quit)
+    thread.finished.connect(worker.deleteLater)
     thread.start()
     return thread
