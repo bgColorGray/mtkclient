@@ -29,6 +29,7 @@ from mtkclient.config.payloads import PathConfig
 from mtkclient.gui.main_gui import Ui_MainWindow
 from mtkclient.gui.themes import DARK_THEME, LIGHT_THEME
 import os
+import subprocess
 import serial.tools.list_ports
 
 
@@ -213,21 +214,43 @@ def getDevInfo(thread, parameters):
         thread.sendUpdateSignal.emit(phone_info.copy())
 
 
+def macos_preferred_languages():
+    # Qt only sees LANG/LC_* when started from a terminal, so ask macOS for the UI languages
+    if sys.platform != "darwin":
+        return []
+    try:
+        out = subprocess.run(["defaults", "read", "-g", "AppleLanguages"],
+                             capture_output=True, text=True, timeout=2).stdout
+    except (OSError, subprocess.SubprocessError):
+        return []
+    return [item.strip().strip('",') for item in out.strip("()\n").split("\n") if item.strip()]
+
+
+def translation_candidates():
+    # MTK_LANG=zh_CN forces a language; otherwise try Qt's locale, then the macOS UI languages
+    names = [os.environ.get("MTK_LANG", "")] + QLocale.system().uiLanguages() + macos_preferred_languages()
+    candidates = []
+    for name in filter(None, names):
+        locale = QLocale(name)
+        if locale.language() == QLocale.Language.C:
+            continue
+        code = "nl_NL" if locale.name() == "en_NL" else locale.name()
+        if code not in candidates:
+            candidates.append(code)
+    return candidates
+
+
 def load_translations(application):
     # Load application translations and the QT base translations for the current locale
-    locale = QLocale.system()
     translator = QTranslator(application)
     directory = os.path.dirname(__file__)
-    lang = f'mtkclient/gui/i18n/{locale.name()}'
-    if locale.name() == "en_NL":
-        lang = lang.replace("en_NL", "nl_NL")
-    # lang = 'mtkclient/gui/i18n/fr_FR'
-    # lang = 'mtkclient/gui/i18n/de_DE'
-    # lang = 'mtkclient/gui/i18n/en_GB'
-    # lang = 'mtkclient/gui/i18n/es_ES'
-    if translator.load(lang, directory):
-        application.installTranslator(translator)
+    candidates = translation_candidates()
+    for code in candidates:
+        if translator.load(f'mtkclient/gui/i18n/{code}', directory):
+            application.installTranslator(translator)
+            break
 
+    locale = QLocale(candidates[0]) if candidates else QLocale.system()
     translations_path = QLibraryInfo.path(QLibraryInfo.TranslationsPath)
     base_translator = QTranslator(application)
     if base_translator.load(locale, "qtbase", "_", translations_path):
