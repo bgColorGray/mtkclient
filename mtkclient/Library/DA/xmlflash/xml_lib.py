@@ -139,23 +139,15 @@ class DAXML(metaclass=LogBase):
 
     def xsend(self, data, datatype=DataType.DT_PROTOCOL_FLOW, is64bit: bool = False):
         if isinstance(data, int):
-            if is64bit:
-                data = pack("<Q", data)
-                length = 8
-            else:
-                data = pack("<I", data)
-                length = 4
-        else:
-            if type(data) is str:
-                length = len(data) + 1
-            else:
-                length = len(data)
-        tmp = pack("<III", self.cmd.MAGIC, datatype, length)
+            data = pack("<Q", data) if is64bit else pack("<I", data)
+        elif isinstance(data, str):
+            # The header carries the length in bytes. Counting characters
+            # undercounts any non-ASCII text, such as a Chinese folder name in
+            # a package path, and the DA then reads a truncated command.
+            data = data.encode("utf-8") + b"\x00"
+        tmp = pack("<III", self.cmd.MAGIC, datatype, len(data))
         if self.usbwrite(tmp):
-            if type(data) is str:
-                return self.usbwrite(bytes(data, 'utf-8') + b"\x00")
-            else:
-                return self.usbwrite(data)
+            return self.usbwrite(data)
         return False
 
     def ack(self):
